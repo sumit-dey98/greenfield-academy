@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from "react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
@@ -27,7 +28,7 @@ const ROLE_HINTS = [
   },
 ]
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login } = useAuth()
@@ -40,7 +41,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  // Set tab from URL param on mount / param change
   useEffect(() => {
     const match = ROLE_HINTS.find(h => h.role === tabParam)
     if (match) {
@@ -198,8 +198,8 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => handleRoleSelect(hint)}
                     className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-all duration-150 ${isActive
-                        ? hint.activeClass
-                        : "border-border bg-surface text-muted hover:bg-surface-2 hover:text-text"
+                      ? hint.activeClass
+                      : "border-border bg-surface text-muted hover:bg-surface-2 hover:text-text"
                       }`}
                   >
                     {hint.label}
@@ -326,5 +326,13 @@ export default function LoginPage() {
         </section>
       </main>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
   )
 }
