@@ -9,8 +9,8 @@ import {
 } from "lucide-react"
 import Select from "@/components/ui/Select"
 import Input from "@/components/ui/Input"
-import CheckBox from "../ui/CheckBox"
-import TimePicker from "../ui/TimePicker"
+import CheckBox from "@/components/ui/CheckBox"
+import TimePicker from "@/components/ui/TimePicker"
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"]
 
