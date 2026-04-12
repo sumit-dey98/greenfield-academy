@@ -64,8 +64,8 @@ export default function StudentAttendance() {
 
     if (!monthlyMap[key]) monthlyMap[key] = {
       key,
-      month,     
-      legend: label, 
+      month,
+      legend: label,
       present: 0, absent: 0, late: 0,
     }
     monthlyMap[key][a.status]++
@@ -81,36 +81,36 @@ export default function StudentAttendance() {
       value: `${rate}%`,
       icon: <Percent size={18} />,
       color: rate >= 75 ? COLORS.primary : COLORS.danger,
-      text: rate >= 75 ? "text-primary" : "text-danger",
-      bg: rate >= 75 ? "bg-primary-light" : "bg-red-50 dark:bg-red-950/30",
-      border: rate >= 75 ? "border-primary" : "border-danger",
+      text: rate >= 75 ? "text-emerald-600" : "text-red-600",
+      bg: rate >= 75 ? "bg-emerald-100 dark:bg-emerald-950/30" : "bg-red-100 dark:bg-red-950/30",
+      ring: rate >= 75 ? "ring-emerald-600/30" : "ring-red-600/30",
     },
     {
       label: "Present",
       value: present,
       icon: <CalendarCheck size={18} />,
       color: COLORS.primary,
-      text: "text-primary",
-      bg: "bg-primary-light",
-      border: "border-primary",
+      text: "text-emerald-600",
+      bg: "bg-emerald-100 dark:bg-emerald-950/30",
+      ring: "ring-emerald-600/30",
     },
     {
       label: "Absent",
       value: absent,
       icon: <CalendarX size={18} />,
       color: COLORS.danger,
-      text: "text-danger",
-      bg: "bg-red-50 dark:bg-red-950/30",
-      border: "border-danger",
+      text: "text-red-600",
+      bg: "bg-red-100 dark:bg-red-950/30",
+      ring: "ring-red-600/30",
     },
     {
       label: "Late",
       value: late,
       icon: <Clock size={18} />,
       color: COLORS.warning,
-      text: "text-warning",
-      bg: "bg-amber-50 dark:bg-amber-950/30",
-      border: "border-warning",
+      text: "text-amber-600",
+      bg: "bg-amber-100 dark:bg-amber-950/30",
+      ring: "ring-amber-600/30",
     },
   ]
 
@@ -192,12 +192,12 @@ export default function StudentAttendance() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s, i) => (
-          <div key={i} className={`stat-card ${s.bg} border ${s.border}`}>
+          <div key={i} className={`stat-card border-0 ring-1 ${s.bg} ${s.ring}`}>
             <div className="flex-col-reverse md:flex-row flex md:items-center gap-2 justify-between mb-3">
               <span className="text-sm font-medium text-muted">{s.label}</span>
               <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{ background: `${s.color}18`, color: s.color, boxShadow: `0 0 1px 1px ${s.color}40` }}
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: s.color, color: "var(--color-bg)", boxShadow: `0 0 1px 1px ${s.color}40` }}
               >
                 {s.icon}
               </div>
@@ -238,7 +238,7 @@ export default function StudentAttendance() {
       {monthlyData.length > 0 && (
         <div className="card flex flex-col gap-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h2 className="font-semibold text-text flex items-center gap-2">
+            <h2 className="font-semibold text-text flex items-center gap-2 text-base">
               <CalendarCheck size={16} className="text-primary" />
               Monthly Attendance
             </h2>

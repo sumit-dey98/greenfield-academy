@@ -95,7 +95,7 @@ export default function Carousel({
                         })}
                       </span>
                     </div>
-                    <div className="flex flex-col md:flex-row items-center justify-between">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
                       <h3 className="text-xl md:text-2xl font-bold text-white leading-snug flex-1">
                         {slide.title}
                       </h3>

@@ -5,15 +5,16 @@ const links = {
   "Quick Links": [
     { label: "Home", href: "/" },
     { label: "About", href: "/about" },
-    { label: "Events", href: "/events" },
-    { label: "Notices", href: "/notices" },
     { label: "Admission", href: "/admission" },
+    { label: "Student Portal", href: "/student/dashboard" },
+    { label: "Teacher Portal", href: "/teacher/dashboard" },
   ],
   "Information": [
     { label: "Faculty", href: "/faculty" },
-    { label: "Student Portal", href: "/student/dashboard" },
-    { label: "Teacher Portal", href: "/teacher/dashboard" },
+    { label: "Notices", href: "/notices" },
+    { label: "Events", href: "/events" },
     { label: "Admin Panel", href: "/admin/login" },
+    { label: "About This Project", href: "/events/about-the-demo-project" },
   ],
 }
 

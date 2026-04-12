@@ -198,7 +198,7 @@ export default function AttendanceManager() {
       {/* Mark attendance panel */}
       {markMode && (
         <div className="card flex flex-col gap-5 border-2 border-primary">
-          <h2 className="font-semibold text-text flex items-center gap-2">
+          <h2 className="font-semibold text-text flex items-center gap-2 text-base">
             <CalendarCheck size={16} className="text-primary" />
             Mark Attendance
           </h2>
@@ -392,10 +392,11 @@ export default function AttendanceManager() {
               </button>
 
               {isExpanded && (
-                <div className="border-t border-border">
+                <div className="border-t border-border max-h-[70vh] overflow-y-auto">
                   {classStudents.length === 0 ? (
                     <p className="text-sm text-muted px-5 py-4">No students in this class.</p>
                   ) : (
+
                     classStudents.map((student, si) => {
                       const studentAtt = getAttendanceForStudent(student.id)
                       const present = studentAtt.filter(a => a.status === "present").length
@@ -461,7 +462,7 @@ export default function AttendanceManager() {
                                   <span className="text-faint">
                                     {new Date(record.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                                   </span>
-                                  <span className={`badge ${statusBadge[record.status]} text-xs py-0`}>
+                                  <span className={`badge h- w-5 rounded-full flex items-center justify-center  ${statusBadge[record.status]} text-xs py-0`}>
                                     {record.status.charAt(0).toUpperCase()}
                                   </span>
                                 </div>

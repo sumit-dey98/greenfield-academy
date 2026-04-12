@@ -80,7 +80,7 @@ export default function StudentProfile() {
         />
         <div className="flex-1 text-center sm:text-left">
           <h2 className="text-xl font-bold text-text">{user?.name}</h2>
-          <p className="text-muted text-sm mt-1" style={{lineBreak: 'anywhere'}}>{user?.email}</p>
+          <p className="text-muted text-sm mt-1" style={{ lineBreak: 'anywhere' }}>{user?.email}</p>
           <div className="flex items-center justify-center sm:justify-start gap-2 mt-3 flex-wrap">
             <span className="badge badge-info">Student</span>
             <span className="badge badge-success">Roll: {user?.roll}</span>
@@ -101,7 +101,7 @@ export default function StudentProfile() {
 
         {/* Personal info */}
         <div className="card flex flex-col gap-4">
-          <h3 className="font-semibold text-text flex items-center gap-2">
+          <h3 className="font-semibold text-text flex items-center gap-2 text-base">
             <User size={16} className="text-primary" />
             Personal Information
           </h3>
@@ -127,7 +127,7 @@ export default function StudentProfile() {
                     placeholder="Your phone number"
                   />
                 ) : (
-                  <div className="text-xs text-text">{user?.phone ?? "—"}</div>
+                  <div className="text-sm text-text">{user?.phone ?? "—"}</div>
                 )}
               </div>
             </div>
@@ -145,7 +145,7 @@ export default function StudentProfile() {
                     placeholder="Your address"
                   />
                 ) : (
-                  <div className="text-xs text-text">{user?.address ?? "—"}</div>
+                  <div className="text-sm text-text">{user?.address ?? "—"}</div>
                 )}
               </div>
             </div>
@@ -165,7 +165,7 @@ export default function StudentProfile() {
 
         {/* Academic info */}
         <div className="card flex flex-col gap-4">
-          <h3 className="font-semibold text-text flex items-center gap-2">
+          <h3 className="font-semibold text-text flex items-center gap-2 text-base">
             <GraduationCap size={16} className="text-primary" />
             Academic Information
           </h3>
@@ -181,7 +181,7 @@ export default function StudentProfile() {
 
         {/* Guardian info */}
         <div className="card flex flex-col gap-4 lg:col-span-2">
-          <h3 className="font-semibold text-text flex items-center gap-2">
+          <h3 className="font-semibold text-text flex items-center gap-2 text-base">
             <Users size={16} className="text-primary" />
             Guardian Information
           </h3>
@@ -202,7 +202,7 @@ function InfoRow({ icon, label, value }) {
       <span className="text-muted mt-[5px] shrink-0">{icon}</span>
       <div className="flex-1">
         <div className="text-sm font-medium text-muted mb-0.5">{label}</div>
-        <div className="text-xs text-text" style={{ lineBreak: 'anywhere'}} >{value ?? "—"}</div>
+        <div className="text-sm text-text" style={{ lineBreak: 'anywhere' }} >{value ?? "—"}</div>
       </div>
     </div>
   )

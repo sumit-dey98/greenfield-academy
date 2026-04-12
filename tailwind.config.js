@@ -8,8 +8,11 @@ const config = {
   ],
   theme: {
     extend: {
+      screens: {
+        "3xl": "1920px",
+      },
       fontFamily: {
-        sans: ['Noto Sans', 'sans-serif'],
+        sans: ['Open Sans', 'sans-serif'],
       },
       fontSize: {
         xs: ['0.8125rem', { lineHeight: '1.5' }],  

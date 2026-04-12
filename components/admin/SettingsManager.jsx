@@ -50,7 +50,7 @@ export default function SettingsManager() {
 
       <div className="flex flex-col 2xl:flex-row gap-6">
         <div className="card flex-1 flex flex-col gap-5">
-          <h2 className="font-semibold text-text flex items-center gap-2 pb-3 border-b border-border">
+          <h2 className="font-semibold text-text flex items-center gap-2 text-base pb-3 border-b border-border">
             <GraduationCap size={16} className="text-primary" />
             Admissions
           </h2>
@@ -112,7 +112,7 @@ export default function SettingsManager() {
         </div>
 
         <div className="card flex-1 flex flex-col gap-5">
-          <h2 className="font-semibold text-text flex items-center gap-2 pb-3 border-b border-border">
+          <h2 className="font-semibold text-text flex items-center gap-2 text-base pb-3 border-b border-border">
             <Settings size={16} className="text-primary" />
             School Information
           </h2>

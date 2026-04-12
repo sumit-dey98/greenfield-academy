@@ -30,7 +30,7 @@ export default function Navbar() {
   const isDashboardActive = dashboardLinks.some(l => pathname.startsWith(l.href.split("/").slice(0, 2).join("/")))
 
   return (
-    <nav className="sticky top-0 z-50 bg-surface border-b border-border shadow-card">
+    <nav className="sticky top-0 z-[200] bg-surface border-b border-border shadow-card">
       <div className="max-w-7xl mx-auto px-6 py-4 md:h-20 flex items-center justify-between">
 
         {/* Logo */}

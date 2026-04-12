@@ -281,7 +281,7 @@ const DatePicker = forwardRef(function DatePicker(
     return {
       position: "fixed",
       left: rect.left,
-      zIndex: 1000,
+      zIndex: 50,
       ...(above
         ? { bottom: window.innerHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }

@@ -41,10 +41,10 @@ export default function TeacherSchedule() {
   const todayCount = schedule.filter(s => s.day === today).length
 
   const stats = [
-    { label: "Total Classes / Week", value: totalClasses, text: "text-text", bg: "bg-primary-light", border: "border-primary" },
-    { label: "Classes Today", value: todayCount, text: "text-cyan-600", bg: "bg-cyan-50 dark:bg-cyan-950/30", border: "border-cyan-600" },
-    { label: "School Days", value: DAYS.length, text: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-950/30", border: "border-purple-600" },
-    { label: "Daily Avg.", value: Math.round(totalClasses / DAYS.length) || 0, text: "text-warning", bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-warning" },
+    { label: "Total Classes / Week", value: totalClasses, text: "text-text", bg: "bg-green-100 dark:bg-green-950/30", border: "ring-green-600" },
+    { label: "Classes Today", value: todayCount, text: "text-cyan-600", bg: "bg-cyan-100 dark:bg-cyan-950/30", border: "ring-cyan-600" },
+    { label: "School Days", value: DAYS.length, text: "text-purple-600", bg: "bg-purple-100 dark:bg-purple-950/30", border: "ring-purple-600" },
+    { label: "Daily Avg.", value: Math.round(totalClasses / DAYS.length) || 0, text: "text-warning", bg: "bg-amber-100 dark:bg-amber-950/30", border: "ring-amber-600" },
   ]
 
   if (loading) return (
@@ -64,16 +64,16 @@ export default function TeacherSchedule() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s, i) => (
-          <div key={i} className={`stat-card ${s.bg} border ${s.border}`}>
+          <div key={i} className={`stat-card ${s.bg} border-0 ring-1 ${s.border}/30`}>
             <div className={`stat-value ${s.text}`}>{s.value}</div>
-            <div className="stat-label">{s.label}</div>
+            <div className={`stat-label text-sm ${s.text}`}>{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Weekly overview */}
       <div className="card flex flex-col gap-4">
-        <h2 className="font-semibold text-text flex items-center gap-2">
+        <h2 className="font-semibold text-text flex items-center gap-2 text-base">
           <CalendarDays size={16} className="text-primary" />
           Weekly Overview
         </h2>

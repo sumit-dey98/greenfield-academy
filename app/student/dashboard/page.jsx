@@ -100,9 +100,9 @@ export default function StudentDashboard() {
       sub: `${totalPresent} of ${totalDays} days`,
       icon: <CalendarCheck size={20} />,
       color: COLORS.primary,
-      text: "text-primary",
-      bg: "bg-primary-light",
-      border: "border-primary",
+      text: "text-emerald-600",
+      bg: "bg-emerald-100 dark:bg-emerald-950/30",
+      ring: "ring-emerald-600/30",
     },
     {
       label: "Avg. Marks (Final)",
@@ -111,8 +111,8 @@ export default function StudentDashboard() {
       icon: <TrendingUp size={20} />,
       color: COLORS.info,
       text: "text-cyan-600",
-      bg: "bg-cyan-50 dark:bg-cyan-950/30",
-      border: "border-cyan-500",
+      bg: "bg-cyan-100 dark:bg-cyan-950/30",
+      ring: "ring-cyan-600/30",
     },
     {
       label: "Total Results",
@@ -121,8 +121,8 @@ export default function StudentDashboard() {
       icon: <ClipboardList size={20} />,
       color: COLORS.purple,
       text: "text-purple-600",
-      bg: "bg-purple-50 dark:bg-purple-950/30",
-      border: "border-purple-500",
+      bg: "bg-purple-100 dark:bg-purple-950/30",
+      ring: "ring-purple-600/30",
     },
     {
       label: "Classes Today",
@@ -130,11 +130,12 @@ export default function StudentDashboard() {
       sub: today,
       icon: <CalendarDays size={20} />,
       color: COLORS.warning,
-      text: "text-warning",
-      bg: "bg-amber-50 dark:bg-amber-950/30",
-      border: "border-warning",
+      text: "text-amber-600",
+      bg: "bg-amber-100 dark:bg-amber-950/30",
+      ring: "ring-amber-600/30",
     },
   ]
+
   if (loading) return (
     <div className="flex items-center justify-center h-full">
       <div className="text-muted text-sm">Loading...</div>
@@ -157,18 +158,18 @@ export default function StudentDashboard() {
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
-          <div key={i} className={`stat-card ${stat.bg} border ${stat.border}`}>
+          <div key={i} className={`stat-card border-0 ring-1 ${stat.bg} ${stat.ring}`}>
             <div className="flex-col-reverse md:flex-row flex md:items-center gap-2 justify-between mb-3">
-              <span className="text-sm font-medium text-muted">{stat.label}</span>
+              <span className="text-lg font-medium text-muted">{stat.label}</span>
               <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{ background: `${stat.color}18`, color: stat.color, boxShadow: `0 0 1px 1px ${stat.color}40` }}
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: `${stat.color}`, color: " var(--color-bg)", boxShadow: `0 0 1px 1px ${stat.color}40` }}
               >
                 {stat.icon}
               </div>
             </div>
             <div className={`stat-value ${stat.text}`}>{stat.value}</div>
-            <div className="stat-label">{stat.sub}</div>
+            <div className={`text-sm font-medium ${stat.text} opacity-70`}>{stat.sub}</div>
           </div>
         ))}
       </div>
@@ -179,7 +180,7 @@ export default function StudentDashboard() {
         {/* Marks bar chart */}
         <div className="card flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-text flex items-center gap-2">
+            <h2 className="font-semibold text-text flex items-center gap-2 text-base">
               <TrendingUp size={16} className="text-primary" />
               Final Exam Marks
             </h2>
@@ -239,7 +240,7 @@ export default function StudentDashboard() {
         {/* Attendance donut */}
         <div className="card flex flex-col gap-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between">
-            <h2 className="font-semibold text-text flex items-center gap-2">
+            <h2 className="font-semibold text-text flex items-center gap-2 text-base">
               <CalendarCheck size={16} className="text-primary" />
               Attendance Breakdown
             </h2>
@@ -265,7 +266,7 @@ export default function StudentDashboard() {
                 <span className="text-xs text-muted">Present</span>
               </div>
             </div>
-            
+
             <div className="flex flex-col gap-3 flex-1 w-full">
               <div className="mt-1 w-full h-2 rounded-full bg-surface-2 overflow-hidden flex">
                 {totalDays > 0 && <>
@@ -287,7 +288,7 @@ export default function StudentDashboard() {
                   <span className="text-sm font-semibold text-text">{item.value} days</span>
                 </div>
               ))}
-              
+
             </div>
           </div>
         </div>
@@ -299,7 +300,7 @@ export default function StudentDashboard() {
         {/* Notices */}
         <div className="card flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-text flex items-center gap-2">
+            <h2 className="font-semibold text-text flex items-center gap-2 text-base">
               <Bell size={16} className="text-primary" />
               Latest Notices
             </h2>
@@ -336,7 +337,7 @@ export default function StudentDashboard() {
         {/* Today's schedule */}
         <div className="card flex flex-col gap-4">
           <div className="flex md:items-center justify-between flex-col md:flex-row">
-            <h2 className="font-semibold text-text flex items-center gap-2">
+            <h2 className="font-semibold text-text flex items-center gap-2 text-base">
               <Clock size={16} className="text-primary" />
               Today's Classes
               <span className="text-xs text-muted font-normal">({today})</span>

@@ -174,17 +174,17 @@ export default function TeacherAttendance() {
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total", value: students.length, text: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-600" },
+          { label: "Total", value: students.length, text: "text-cyan-600", bg: "bg-cyan-100 dark:bg-cyan-950/30", border: "ring-cyan-600/40" },
 
-          { label: "Present", value: presentCount, text: "text-success", bg: "bg-green-50 dark:bg-green-950/30", border: "border-success" },
+          { label: "Present", value: presentCount, text: "text-success", bg: "bg-green-100 dark:bg-green-950/30", border: "ring-green-600/40" },
           
-          { label: "Absent", value: absentCount, text: "text-danger", bg: "bg-red-50 dark:bg-red-950/30", border: "border-danger" },
+          { label: "Absent", value: absentCount, text: "text-red-600", bg: "bg-red-100 dark:bg-red-950/30", border: "ring-red-600/40" },
 
-          { label: "Late", value: lateCount, text: "text-warning", bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-warning" },
+          { label: "Late", value: lateCount, text: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-950/30", border: "ring-amber-600/40" },
         ].map((s, i) => (
-          <div key={i} className={`stat-card ${s.bg} border ${s.border}`}>
+          <div key={i} className={`stat-card ${s.bg} border-0 ring-1 ${s.border}`}>
             <div className={`stat-value ${s.text}`}>{s.value}</div>
-            <div className="stat-label">{s.label}</div>
+            <div className={`stat-label ${s.text}`}>{s.label}</div>
           </div>
         ))}
       </div>

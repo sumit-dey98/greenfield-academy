@@ -56,7 +56,7 @@ const Select = forwardRef(function Select(
       position: "fixed",
       left: rect.left,
       width: rect.width,
-      zIndex: 1000,
+      zIndex: 100,
       ...(above
         ? { bottom: window.innerHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }

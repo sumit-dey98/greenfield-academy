@@ -1,5 +1,5 @@
-import AdminDashboard from "@/app/admin/dashboard/page"
+import DashboardScreen from "@/components/admin/DashboardScreen"
 
-export default function SuperadminDashboard() {
-  return <AdminDashboard basePath="/superadmin" />
+export default function SuperAdminDashboard() {
+  return <DashboardScreen basePath="/superadmin" />
 }

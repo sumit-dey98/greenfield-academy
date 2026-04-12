@@ -29,7 +29,7 @@ const SLIDES = [
   },
 ]
 
-export default function HeroSlideshow() {
+export default function HeroSlideshow({ className, homeClasses }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [
     Autoplay({ delay: 4000, stopOnInteraction: false }),
   ])
@@ -38,42 +38,26 @@ export default function HeroSlideshow() {
   const next = useCallback(() => emblaApi?.scrollNext(), [emblaApi])
 
   return (
-    <div className="relative">
-      <div className="rounded-xl overflow-hidden aspect-square  sm:aspect-[4/3]">
-        <div ref={emblaRef} className="overflow-hidden h-full">
-          <div className="flex h-full">
-            {SLIDES.map((slide, i) => (
-              <div key={i} className="flex-[0_0_100%] min-w-0 h-full relative">
-                <img
-                  src={slide.src}
-                  alt={slide.alt}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-0 left-0 right-0 bg-primary px-4 py-2.5">
-                  <p className="text-bg text-sm font-semibold text-center">{slide.caption}</p>
-                </div>
+    <div className="relative w-full h-64 sm:h-80 lg:h-full min-h-[360px]">
+      <div ref={emblaRef} className="overflow-hidden h-full">
+        <div className="flex h-full">
+          {SLIDES.map((slide, i) => (
+            <div key={i} className="flex-[0_0_100%] min-w-0 h-full relative">
+              <img
+                src={slide.src}
+                alt={slide.alt}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-primary px-4 py-2.5">
+                <p className="text-bg text-sm font-semibold text-center">{slide.caption}</p>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Prev / Next */}
-      {/* <button
-        onClick={prev}
-        className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center transition-colors backdrop-blur-sm"
-      >
-        <ChevronLeft size={16} />
-      </button>
-      <button
-        onClick={next}
-        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center transition-colors backdrop-blur-sm"
-      >
-        <ChevronRight size={16} />
-      </button> */}
-
       {/* Dots */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
         {SLIDES.map((_, i) => (
           <button
             key={i}

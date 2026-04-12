@@ -65,8 +65,8 @@ export default function Leadership({
 
               {/* Name + role */}
               <div>
-                <h3 className="font-bold text-text">{l.name}</h3>
-                <p className="text-xs text-primary font-semibold mt-0.5">{l.role}</p>
+                <h3 className="text-xl font-bold text-text">{l.name}</h3>
+                <p className="text-base text-primary font-semibold mt-0.5">{l.role}</p>
                 {l.join_date && (
                   <p className="text-xs text-faint mt-0.5">
                     Since {new Date(l.join_date).getFullYear()}

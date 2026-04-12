@@ -12,7 +12,7 @@ export default function Testimonials({onReady}) {
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   const [emblaRef, emblaApi] = useEmblaCarousel(
-    { loop: true, align: "start" },
+    { loop: true, align: "center" },
     [Autoplay({ delay: 5000, stopOnInteraction: false })]
   )
 
@@ -88,11 +88,11 @@ export default function Testimonials({onReady}) {
           </button>
 
           <div ref={emblaRef} className="overflow-hidden">
-            <div className="flex gap-4">
+            <div className="flex">
               {testimonials.map((t) => (
                 <div
                   key={t.id}
-                  className="flex-none w-full md:w-[calc(50%-8px)]"
+                  className="flex-none w-full md:w-[calc(50%-8px)] px-2"
                 >
                   <div className="card flex flex-col gap-4 py-8 px-6 relative h-full select-none cursor-grab">
 

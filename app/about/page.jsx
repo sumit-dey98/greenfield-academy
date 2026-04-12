@@ -68,10 +68,10 @@ export default function AboutPage() {
           />
 
           <div className="max-w-6xl mx-auto relative">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 
               {/* Left — image */}
-              <div className="relative hidden md:block">
+              <div className="relative row-start-2 lg:row-start-1">
                 <div className="rounded-2xl overflow-hidden shadow-lg aspect-[4/3]">
                   <img
                     src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&auto=format&fit=crop"
@@ -80,7 +80,7 @@ export default function AboutPage() {
                   />
                 </div>
                 {/* Floating badge */}
-                <div className="absolute -bottom-4 -right-4 bg-surface border border-border rounded-xl px-5 py-3 shadow-lg flex items-center gap-3">
+                {/* <div className="absolute -bottom-4 -right-4 bg-surface border border-border rounded-xl px-5 py-3 shadow-lg flex items-center gap-3">
                   <div className="bg-primary rounded-lg p-2 flex shrink-0">
                     <GraduationCap size={18} color="#fff" />
                   </div>
@@ -88,7 +88,7 @@ export default function AboutPage() {
                     <div className="font-bold text-sm text-text">Est. 1998</div>
                     <div className="text-xs text-muted">Dhaka, Bangladesh</div>
                   </div>
-                </div>
+                </div> */}
               </div>
 
               {/* Right — content */}

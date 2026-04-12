@@ -22,7 +22,7 @@ function NoticeCard({ notice }) {
   const isExpired = notice.expires && new Date(notice.expires) < new Date()
 
   return (
-    <div className={`card flex flex-col gap-0 overflow-hidden transition-all duration-200 hover:bg-bg hover:ring hover:ring-surface-2 ${isExpired ? "opacity-60" : ""}`}>
+    <div className={`card flex flex-col gap-0 overflow-hidden transition-all duration-200 hover:bg-surface-2 hover:ring hover:ring-surface-2 ${isExpired ? "opacity-60" : ""}`}>
 
       {/* Clickable header */}
       <button
@@ -140,7 +140,7 @@ export default function NoticesPage() {
     <div className="min-h-screen flex flex-col bg-bg">
       <Navbar />
 
-      <main className="flex-1 py-10 md:py-14 px-6">
+      <main className="flex-1 py-10 md:py-14 px-4 md:px-6">
         <div className="max-w-3xl mx-auto flex flex-col gap-8">
 
           {/* Header */}

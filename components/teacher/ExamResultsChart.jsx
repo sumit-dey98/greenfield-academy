@@ -160,7 +160,7 @@ export default function ExamResultsChart({ examIds = null }) {
   return (
     <div className="card flex flex-col gap-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="font-semibold text-text flex items-center gap-2">
+        <h2 className="font-semibold text-text flex items-center gap-2 text-base">
           <TrendingUp size={16} className="text-primary" />
           Class Performance
         </h2>

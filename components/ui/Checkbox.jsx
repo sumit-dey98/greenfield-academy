@@ -3,7 +3,7 @@
 import { forwardRef } from "react"
 import { Check, AlertCircle } from "lucide-react"
 
-const Checkbox = forwardRef(function Checkbox(
+const CheckBox = forwardRef(function CheckBox(
   {
     label,
     error,
@@ -58,4 +58,4 @@ const Checkbox = forwardRef(function Checkbox(
   )
 })
 
-export default Checkbox
+export default CheckBox

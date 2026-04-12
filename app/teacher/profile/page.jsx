@@ -15,7 +15,7 @@ function InfoRow({ icon, label, value }) {
       <span className="text-muted mt-[5px] shrink-0">{icon}</span>
       <div className="flex-1">
         <div className="text-sm font-medium text-muted mb-0.5">{label}</div>
-        <div className="text-xs text-text">{value ?? "--"}</div>
+        <div className="text-sm text-text">{value ?? "--"}</div>
       </div>
     </div>
   )
@@ -132,7 +132,7 @@ export default function TeacherProfile() {
 
         {/* Personal info */}
         <div className="card flex flex-col gap-4">
-          <h3 className="font-semibold text-text flex items-center gap-2">
+          <h3 className="font-semibold text-text flex items-center gap-2 text-base">
             <User size={16} className="text-primary" />
             Personal Information
           </h3>
@@ -156,7 +156,7 @@ export default function TeacherProfile() {
                     value={phone}
                     onChange={e => { setPhone(e.target.value); setPhoneError(null) }}
                     error={phoneError}
-                    placeholder="+880-XXXX-XXXXXX" 
+                    placeholder="+880-XXXX-XXXXXX"
                   />
                 ) : (
                   <InfoRow icon={null} label="Phone" value={user?.phone} />
@@ -179,7 +179,7 @@ export default function TeacherProfile() {
 
         {/* Class info */}
         <div className="card flex flex-col gap-4">
-          <h3 className="font-semibold text-text flex items-center gap-2">
+          <h3 className="font-semibold text-text flex items-center gap-2 text-base">
             <GraduationCap size={16} className="text-primary" />
             Class Information
           </h3>

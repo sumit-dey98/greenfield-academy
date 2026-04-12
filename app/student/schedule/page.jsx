@@ -5,9 +5,10 @@ import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/context/AuthContext"
 import { CalendarDays, Clock } from "lucide-react"
 
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"]
+const DAYS = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"]
 
 const DAY_COLORS = [
+  "#f97316",
   "#059669",
   "#0891b2",
   "#9333ea",
@@ -56,8 +57,8 @@ export default function StudentSchedule() {
       icon: <CalendarDays size={18} />,
       color: "#059669",
       text: "text-primary",
-      bg: "bg-primary-light",
-      border: "border-primary",
+      bg: "bg-emerald-100 dark:bg-emerald-950/30",
+      ring: "ring-emerald-500/40",
     },
     {
       label: "Classes Today",
@@ -65,8 +66,8 @@ export default function StudentSchedule() {
       icon: <Clock size={18} />,
       color: "#0891b2",
       text: "text-cyan-600",
-      bg: "bg-cyan-50 dark:bg-cyan-950/30",
-      border: "border-cyan-500",
+      bg: "bg-cyan-100 dark:bg-cyan-950/30",
+      ring: "ring-cyan-500/40",
     },
     {
       label: "School Days",
@@ -74,8 +75,8 @@ export default function StudentSchedule() {
       icon: <CalendarDays size={18} />,
       color: "#9333ea",
       text: "text-purple-600",
-      bg: "bg-purple-50 dark:bg-purple-950/30",
-      border: "border-purple-500",
+      bg: "bg-purple-100 dark:bg-purple-950/30",
+      ring: "ring-purple-500/40",
     },
     {
       label: "Daily Avg.",
@@ -83,8 +84,8 @@ export default function StudentSchedule() {
       icon: <Clock size={18} />,
       color: "#f59e0b",
       text: "text-warning",
-      bg: "bg-amber-50 dark:bg-amber-950/30",
-      border: "border-warning",
+      bg: "bg-amber-100 dark:bg-amber-950/30",
+      ring: "ring-amber-500/40",
     },
   ]
 
@@ -106,12 +107,12 @@ export default function StudentSchedule() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s, i) => (
-          <div key={i} className={`stat-card ${s.bg} border ${s.border}`}>
+          <div key={i} className={`stat-card border-0 ring-1 ${s.bg} ${s.ring}`}>
             <div className="flex-col-reverse md:flex-row flex md:items-center gap-2 justify-between mb-3">
               <span className="text-sm font-medium text-muted">{s.label}</span>
               <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{ background: `${s.color}18`, color: s.color, boxShadow: `0 0 1px 1px ${s.color}40` }}
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: s.color, color: "var(--color-bg)", boxShadow: `0 0 1px 1px ${s.color}40` }}
               >
                 {s.icon}
               </div>
@@ -143,11 +144,11 @@ export default function StudentSchedule() {
 
       {/* Weekly overview grid */}
       <div className="card flex flex-col gap-4">
-        <h2 className="font-semibold text-text flex items-center gap-2">
+        <h2 className="font-semibold text-text flex items-center gap-2 text-base">
           <CalendarDays size={16} className="text-primary" />
           Weekly Overview
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {DAYS.map((day, di) => {
             const dayClasses = schedule.filter(s => s.day === day)
             const color = DAY_COLORS[di]
@@ -157,28 +158,28 @@ export default function StudentSchedule() {
               <button
                 key={day}
                 onClick={() => setActiveDay(day)}
-                className={`flex flex-col gap-2 p-3 rounded-lg border text-left transition-all duration-150 cursor-pointer
-                  ${isActive ? "border-primary bg-primary-light" : "border-border bg-surface hover:bg-surface-2"}`}
+                className={`flex flex-col gap-2 p-3 rounded-lg text-left transition-all duration-150 cursor-pointer ring-1
+    ${isActive ? "ring-emerald-500/40 bg-primary-light" : "ring-emerald-500/40 bg-surface hover:bg-surface-2"}`}
               >
                 <div className="flex items-center justify-between">
-                  <span className={`text-xs font-semibold ${isActive ? "text-primary" : "text-muted"}`}>
+                  <span className={`text-base font-semibold ${isActive ? "text-primary" : "text-muted"}`}>
                     {day.slice(0, 3)}
                   </span>
                   {isToday && (
-                    <span className="text-xs font-medium text-primary bg-primary-light px-1.5 py-0.5 rounded-full">
+                    <span className="text-xs font-medium text-bg bg-text px-1.5 py-0.5 rounded-full">
                       Today
                     </span>
                   )}
                 </div>
-                <div className="flex items-start gap-2"> 
+                <div className="flex items-start gap-2">
                   <div className="text-2xl font-bold text-text">{dayClasses.length}</div>
 
-                  <div className="text-xs text-muted">
+                  <div className="text-sm text-muted mt-1">
                     {dayClasses.length === 1 ? "class" : "classes"}
                   </div>
-                  
+
                 </div>
-                
+
                 <div className="w-full h-1 rounded-full mt-1" style={{ background: `${color}30` }}>
                   <div
                     className="h-full rounded-full transition-all duration-300"

@@ -3,9 +3,10 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
 import Input from "@/components/ui/Input"
-import { GraduationCap, LogIn, Shield } from "lucide-react"
+import { LogIn } from "lucide-react"
 
 export default function SuperAdminLogin() {
   const router = useRouter()
@@ -13,11 +14,14 @@ export default function SuperAdminLogin() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const { logout } = useAuth()
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError("")
+
+    logout() 
 
     const { data, error: authError } = await supabase.auth.signInWithPassword({
       email,

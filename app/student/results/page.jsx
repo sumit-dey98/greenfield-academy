@@ -86,9 +86,9 @@ export default function StudentResults() {
       value: `${avgMarks}%`,
       icon: <TrendingUp size={18} />,
       color: COLORS.primary,
-      text: "text-primary",
-      bg: "bg-primary-light",
-      border: "border-primary",
+      text: "text-emerald-600",
+      bg: "bg-emerald-100 dark:bg-emerald-950/30",
+      ring: "ring-emerald-600/30",
     },
     {
       label: "Highest",
@@ -96,17 +96,17 @@ export default function StudentResults() {
       icon: <Award size={18} />,
       color: COLORS.info,
       text: "text-cyan-600",
-      bg: "bg-cyan-50 dark:bg-cyan-950/30",
-      border: "border-cyan-500",
+      bg: "bg-cyan-100 dark:bg-cyan-950/30",
+      ring: "ring-cyan-600/30",
     },
     {
       label: "Lowest",
       value: `${lowest}%`,
       icon: <BookOpen size={18} />,
       color: COLORS.warning,
-      text: "text-warning",
-      bg: "bg-amber-50 dark:bg-amber-950/30",
-      border: "border-warning",
+      text: "text-amber-600",
+      bg: "bg-amber-100 dark:bg-amber-950/30",
+      ring: "ring-amber-600/30",
     },
   ]
 
@@ -127,12 +127,12 @@ export default function StudentResults() {
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {stats.map((s, i) => (
-          <div key={i} className={`stat-card ${s.bg} border ${s.border}`}>
+          <div key={i} className={`stat-card border-0 ring-1 ${s.bg} ${s.ring}`}>
             <div className="flex-col-reverse md:flex-row flex md:items-center gap-2 justify-between mb-3">
-              <span className="text-sm font-medium text-muted">{s.label}</span>
+              <span className={`text-lg font-medium ${s.text}`}>{s.label}</span>
               <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{ background: `${s.color}18`, color: s.color, boxShadow: `0 0 1px 1px ${s.color}40` }}
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: s.color, color: "var(--color-bg)", boxShadow: `0 0 1px 1px ${s.color}40` }}
               >
                 {s.icon}
               </div>
@@ -162,7 +162,7 @@ export default function StudentResults() {
       {/* Bar chart */}
       {barData.length > 0 && (
         <div className="card flex flex-col gap-4">
-          <h2 className="font-semibold text-text flex items-center gap-2">
+          <h2 className="font-semibold text-text flex items-center gap-2 text-base">
             <TrendingUp size={16} className="text-primary" />
             Marks by Subject
           </h2>

@@ -6,11 +6,11 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/context/AuthContext"
 import Input from "@/components/ui/Input"
-import { GraduationCap, LogIn, Shield, ArrowLeft } from "lucide-react"
+import {  LogIn, ArrowLeft } from "lucide-react"
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, logout } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -29,6 +29,7 @@ export default function AdminLoginPage() {
         .maybeSingle()
 
       if (adminUser) {
+        logout()  
         login({ ...adminUser, user_type: "admin" })
         router.push("/admin/dashboard")
         return

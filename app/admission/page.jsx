@@ -8,7 +8,7 @@ import Input from "@/components/ui/Input"
 import Select from "@/components/ui/Select"
 import DatePicker from "@/components/ui/DatePicker"
 import FileUpload from "@/components/ui/FileUpload"
-import Checkbox from "@/components/ui/Checkbox"
+import CheckBox from "@/components/ui/CheckBox"
 import Textarea from "@/components/ui/Textarea"
 import {
   GraduationCap, Users, FileText,
@@ -137,7 +137,7 @@ export default function AdmissionPage() {
     <div className="min-h-screen flex flex-col bg-bg">
       <Navbar />
 
-      <main className="flex-1 py-10 md:py-14 px-6">
+      <main className="flex-1 py-10 md:py-14 px-4 md:px-6">
         <div className="max-w-3xl mx-auto flex flex-col gap-8">
 
           {/* Header */}
@@ -234,7 +234,7 @@ export default function AdmissionPage() {
 
               {/* Student Information */}
               <div className="card flex flex-col gap-5">
-                <h2 className="font-semibold text-text flex items-center gap-2 pb-3 border-b border-border">
+                <h2 className="font-semibold text-text flex items-center gap-2 text-base pb-3 border-b border-border">
                   <GraduationCap size={16} className="text-primary" />
                   Student Information
                 </h2>
@@ -318,7 +318,7 @@ export default function AdmissionPage() {
 
               {/* Guardian Information */}
               <div className="card flex flex-col gap-5">
-                <h2 className="font-semibold text-text flex items-center gap-2 pb-3 border-b border-border">
+                <h2 className="font-semibold text-text flex items-center gap-2 text-base pb-3 border-b border-border">
                   <Users size={16} className="text-primary" />
                   Guardian Information
                 </h2>
@@ -401,7 +401,7 @@ export default function AdmissionPage() {
 
               {/* Additional Information */}
               <div className="card flex flex-col gap-5">
-                <h2 className="font-semibold text-text flex items-center gap-2 pb-3 border-b border-border">
+                <h2 className="font-semibold text-text flex items-center gap-2 text-base pb-3 border-b border-border">
                   <FileText size={16} className="text-primary" />
                   Additional Information
                 </h2>
@@ -433,7 +433,7 @@ export default function AdmissionPage() {
 
               {/* Document Upload */}
               <div className="card flex flex-col gap-4">
-                <h2 className="font-semibold text-text flex items-center gap-2 pb-3 border-b border-border">
+                <h2 className="font-semibold text-text flex items-center gap-2 text-base pb-3 border-b border-border">
                   <FileText size={16} className="text-primary" />
                   Document Upload
                 </h2>
@@ -458,7 +458,7 @@ export default function AdmissionPage() {
                   This is a demonstration form — no data will be stored or processed.
                 </p>
                 <div id="agreed">
-                  <Checkbox
+                  <CheckBox
                     label="I have read and agree to the above declaration."
                     checked={agreed}
                     onChange={e => {

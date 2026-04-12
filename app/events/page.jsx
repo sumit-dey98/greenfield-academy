@@ -49,7 +49,7 @@ export default function EventsPage() {
         {/* Hero carousel */}
         <div className="relative">
           {loading ? (
-            <div className="w-full bg-surface-2 animate-pulse" />
+            <div className="w-full bg-surface-2 animate-pulse h-80 md:h-[600px]" />
           ) : (
             <Carousel
               slides={latest}

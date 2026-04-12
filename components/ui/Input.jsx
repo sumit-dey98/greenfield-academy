@@ -19,22 +19,14 @@ const Input = forwardRef(function Input(
   const isPassword = type === "password"
   const inputType = isPassword ? (showPassword ? "text" : "password") : type
 
-  return (
-    <div className="flex flex-col w-full">
-      {label && (
-        <label className="text-xs font-semibold text-text mb-1.5">
-          {label}
-          {required && <span className="text-danger ml-0.5">*</span>}
-        </label>
-      )}
-
+  const inner = (
+    <>
       <div className="relative flex items-center">
         <input
           ref={ref}
           type={inputType}
           required={required}
-          className={`input pr-${isPassword ? "10" : "3"} ${error ? "border-danger focus:border-danger focus:shadow-none" : ""
-            } ${className}`}
+          className={`input ${isPassword ? "pr-10" : ""} ${error ? "border-danger focus:border-danger focus:shadow-none" : ""} ${className}`}
           {...props}
         />
         {isPassword && (
@@ -50,15 +42,25 @@ const Input = forwardRef(function Input(
         )}
       </div>
 
-      {hint && !error && (
-        <p className="text-xs text-faint">{hint}</p>
-      )}
+      {hint && !error && <p className="text-xs text-faint">{hint}</p>}
       {error && (
         <p className="text-xs text-danger flex items-center gap-1">
           <AlertCircle size={11} className="shrink-0" />
           {error}
         </p>
       )}
+    </>
+  )
+
+  if (!label) return inner
+
+  return (
+    <div className="flex flex-col w-full gap-1.5">
+      <label className="text-xs font-semibold text-text">
+        {label}
+        {required && <span className="text-danger ml-0.5">*</span>}
+      </label>
+      {inner}
     </div>
   )
 })

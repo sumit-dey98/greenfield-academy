@@ -7,7 +7,7 @@ const HOURS = Array.from({ length: 12 }, (_, i) => String(i === 0 ? 12 : i).padS
 const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"))
 
 function parseTime(val) {
-  // Accepts "HH:MM" 24hr from DB, returns { hour, minute, period }
+  
   if (!val) return { hour: "12", minute: "00", period: "AM" }
   const [h, m] = val.split(":").map(Number)
   if (isNaN(h) || isNaN(m)) return { hour: "12", minute: "00", period: "AM" }

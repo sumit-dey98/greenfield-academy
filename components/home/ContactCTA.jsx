@@ -38,10 +38,8 @@ export default function ContactCTA() {
               <h2 className="text-3xl font-bold text-text mb-3">
                 We'd love to hear from you
               </h2>
-              <p className="text-muted leading-relaxed">
-                Whether you have a question about admissions, want to visit the
-                campus, or just want to learn more about Greenfield Academy —
-                our team is always happy to help.
+              <p className="text-sm text-muted leading-relaxed">
+                Whether you have a question about admissions, want to visit the campus, or just want to learn more about Greenfield Academy — our team is always happy to help.
               </p>
             </div>
 
@@ -56,8 +54,8 @@ export default function ContactCTA() {
                     {c.icon}
                   </div>
                   <div>
-                    <div className="text-xs text-muted">{c.label}</div>
-                    <div className="text-sm font-semibold text-text">{c.value}</div>
+                    <div className="text-sm font-semibold text-muted">{c.label}</div>
+                    <div className="text-sm text-text">{c.value}</div>
                   </div>
                 </div>
               ))}

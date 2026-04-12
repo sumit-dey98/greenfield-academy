@@ -223,7 +223,7 @@ export default function EventsManager() {
                   </span>
                 </div>
                 <h3 className="font-semibold text-text truncate">{event.title}</h3>
-                <a href={`/events/${event.slug}`} className="text-xs text-muted truncate hover:text-primary transition-colors">
+                <a href={`/events/${event.slug}`} className="text-xs text-muted truncate hover:text-primary transition-colors flex w-fit">
                   /events/{event.slug}
                 </a>
               </div>

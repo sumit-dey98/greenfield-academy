@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import Select from "@/components/ui/Select"
 import Input from "@/components/ui/Input"
+import CheckBox from "../ui/CheckBox"
 import TimePicker from "../ui/TimePicker"
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"]
@@ -31,7 +32,7 @@ export default function ScheduleManager() {
   const [schedule, setSchedule] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedClass, setSelectedClass] = useState("")
-  const [activeCell, setActiveCell] = useState(null) 
+  const [activeCell, setActiveCell] = useState(null)
   const [cellForm, setCellForm] = useState({ subject_id: "", teacher_id: "", room: "" })
   const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0, width: 0, above: false })
   const [conflict, setConflict] = useState(null)
@@ -111,7 +112,7 @@ export default function ScheduleManager() {
     setConflict(null)
 
     const rect = anchorEl.getBoundingClientRect()
-    const popoverHeight = 280 
+    const popoverHeight = 280
     const spaceBelow = window.innerHeight - rect.bottom
     const above = spaceBelow < popoverHeight + 12
 
@@ -251,50 +252,46 @@ export default function ScheduleManager() {
       {/* Period editor */}
       <div className="card flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-text flex items-center gap-2">
+          <h2 className="font-semibold text-text flex items-center gap-2 text-base">
             <Clock size={16} className="text-primary" />
             Periods
           </h2>
           <button
             onClick={() => setShowAddPeriod(o => !o)}
-            className="btn btn-outline text-xs w-fit"
+            className="btn btn-primary text-sm w-fit"
           >
-            <Plus size={13} /> Add Period
+            <Plus size={14} /> Add Period
           </button>
         </div>
 
         {showAddPeriod && (
           <div className="flex flex-col xl:flex-row xl:justify-between gap-3 flex-1 min-w-0 p-3 bg-surface-2 rounded-lg border border-border">
             {/* Time pickers */}
-            <div className="flex items-center gap-2 flex-wrap md:flex-nowrap">
-              <TimePicker label="Start" value={newPeriod.start_time} onChange={v => setNewPeriod(f => ({ ...f, start_time: v }))} />
-              <span className="text-faint text-sm">to</span>
-              <TimePicker label="End" value={newPeriod.end_time} onChange={v => setNewPeriod(f => ({ ...f, end_time: v }))} />
+            <div className="flex items-end gap-2 flex-wrap md:flex-nowrap">
+              <TimePicker className="min-w-44" label="Start" value={newPeriod.start_time} onChange={v => setNewPeriod(f => ({ ...f, start_time: v }))} />
+              <TimePicker className="min-w-44" label="End" value={newPeriod.end_time} onChange={v => setNewPeriod(f => ({ ...f, end_time: v }))} />
             </div>
 
             {/* Label + break */}
             <div className="flex items-center gap-3 flex-wrap">
-              <input
+              <Input
+                className=" w-full"
                 type="text"
                 value={newPeriod.label}
                 onChange={e => setNewPeriod(f => ({ ...f, label: e.target.value }))}
                 placeholder="e.g. Break, Assembly"
-                className="input w-fit text-xs"
               />
-              <label className="flex items-center gap-1.5 text-sm text-text cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={newPeriod.is_break}
-                  onChange={e => setNewPeriod(f => ({ ...f, is_break: e.target.checked }))}
-                />
-                Is break
-              </label>
+              <CheckBox
+                label="Is break"
+                checked={newPeriod.is_break}
+                onChange={e => setNewPeriod(f => ({ ...f, is_break: e.target.checked }))}
+              />
             </div>
 
             {/* Actions */}
             <div className="flex gap-2 h-10 xl:self-center">
               <button onClick={handleAddPeriod} disabled={savingPeriod} className="btn btn-primary text-xs disabled:opacity-60">
-                {savingPeriod ? <span className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <><Plus size={12} /> Add</>}
+                {savingPeriod ? <span className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <><Plus size={13} /> Add</>}
               </button>
               <button onClick={() => setShowAddPeriod(false)} className="btn btn-outline text-xs">Cancel</button>
             </div>
@@ -311,28 +308,25 @@ export default function ScheduleManager() {
                 <div className="flex flex-col xl:flex-row xl:justify-between gap-3 flex-1 min-w-0 ">
                   {/* Time pickers */}
                   <div className="flex items-center gap-2 flex-wrap md:flex-nowrap">
-                    <TimePicker value={periodForm.start_time} onChange={v => setPeriodForm(f => ({ ...f, start_time: v }))} />
+                    <TimePicker className="min-w-44" value={periodForm.start_time} onChange={v => setPeriodForm(f => ({ ...f, start_time: v }))} />
                     <span className="text-faint text-sm">to</span>
-                    <TimePicker value={periodForm.end_time} onChange={v => setPeriodForm(f => ({ ...f, end_time: v }))} />
+                    <TimePicker className="min-w-44" value={periodForm.end_time} onChange={v => setPeriodForm(f => ({ ...f, end_time: v }))} />
                   </div>
 
                   {/* Label + break */}
                   <div className="flex items-center gap-3 flex-wrap">
-                    <input
+                    <Input
+                      className="w-fit"
                       type="text"
                       value={periodForm.label}
                       onChange={e => setPeriodForm(f => ({ ...f, label: e.target.value }))}
                       placeholder="Label (optional)"
-                      className="input w-fit text-xs"
                     />
-                    <label className="flex items-center gap-1.5 text-sm text-text cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={periodForm.is_break}
-                        onChange={e => setPeriodForm(f => ({ ...f, is_break: e.target.checked }))}
-                      />
-                      Break
-                    </label>
+                    <CheckBox
+                      label="Break"
+                      checked={periodForm.is_break}
+                      onChange={e => setPeriodForm(f => ({ ...f, is_break: e.target.checked }))}
+                    />
                   </div>
 
                   {/* Actions */}

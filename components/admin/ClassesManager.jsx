@@ -229,7 +229,7 @@ export default function ClassesManager() {
               </div>
 
               {teacher && (
-                <div className="flex items-center gap-2 px-3 py-2.5 bg-surface-2 rounded-lg border border-border">
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-surface-2 rounded-lg ring-1 ring-emerald-800/40">
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                     style={{ background: color }}

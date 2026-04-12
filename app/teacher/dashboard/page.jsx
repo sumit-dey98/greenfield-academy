@@ -91,8 +91,8 @@ export default function TeacherDashboard() {
       sub: "in your class",
       icon: <Users size={20} />,
       color: COLORS.primary,
-      bg: "bg-emerald-50",
-      border: "border-emerald-500",
+      bg: "bg-emerald-100 dark:bg-emerald-950",
+      border: "ring-emerald-600",
     },
     {
       label: "Classes Today",
@@ -100,8 +100,8 @@ export default function TeacherDashboard() {
       sub: today,
       icon: <CalendarDays size={20} />,
       color: COLORS.info,
-      bg: "bg-cyan-50",
-      border: "border-cyan-500",
+      bg: "bg-cyan-100 dark:bg-cyan-950",
+      border: "ring-cyan-600",
     },
     {
       label: "Attendance Today",
@@ -109,8 +109,8 @@ export default function TeacherDashboard() {
       sub: `${markedToday} of ${totalStudents} marked`,
       icon: <CalendarCheck size={20} />,
       color: attendanceRate !== null && attendanceRate >= 75 ? COLORS.primary : COLORS.warning,
-      bg: attendanceRate !== null && attendanceRate >= 75 ? "bg-primary-50" : "bg-warning-50",
-      border: attendanceRate !== null && attendanceRate >= 75 ? "border-primary" : "border-warning",
+      bg: attendanceRate !== null && attendanceRate >= 75 ? "bg-green-100 dark:bg-green-950" : "bg-amber-100 dark:bg-amber-950",
+      border: attendanceRate !== null && attendanceRate >= 75 ? "ring-green-600" : "ring-amber-600",
     },
     {
       label: "Unmarked Today",
@@ -118,8 +118,8 @@ export default function TeacherDashboard() {
       sub: unmarked > 0 ? "needs attention" : "all marked",
       icon: <AlertCircle size={20} />,
       color: unmarked > 0 ? COLORS.danger : COLORS.primary,
-      bg: unmarked > 0 ? "bg-danger-50" : "bg-primary-50",
-      border: unmarked > 0 ? "border-danger" : "border-primary",
+      bg: unmarked > 0 ? "bg-red-100 dark:bg-red-950" : "bg-green-100 dark:bg-green-950",
+      border: unmarked > 0 ? "ring-red-600" : "ring-green-600",
     },
   ]
 
@@ -135,7 +135,7 @@ export default function TeacherDashboard() {
       {/* Welcome */}
       <div>
         <h1 className="text-2xl font-bold text-text">
-          Welcome, {user?.name?.split(" ")[0] + " " + user?.name?.split(" ")[1] } 
+          Welcome, {user?.name?.split(" ")[0] + " " + user?.name?.split(" ")[1]}
         </h1>
         <p className="text-sm text-muted mt-1">
           Here's an overview of your class and schedule.
@@ -145,13 +145,13 @@ export default function TeacherDashboard() {
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((s, i) => (
-          <div key={i} className={`stat-card border ${s.border} ${s.bg}/30`}>
+          <div key={i} className={`stat-card ring-1 border-0 ${s.border}/30 ${s.bg}`}>
 
             <div className="flex-col-reverse md:flex-row flex md:items-center gap-2 justify-between mb-3">
               <span className="text-sm font-medium text-muted">{s.label}</span>
               <div
                 className="w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{ background: `${s.color}18`, color: s.color, boxShadow: `0 0 1px 1px ${s.color}40` }}
+                style={{ background: `${s.color}`, color: 'var(--color-bg)' }}
               >
                 {s.icon}
               </div>
@@ -189,7 +189,7 @@ export default function TeacherDashboard() {
         {/* Today's schedule */}
         <div className="card flex flex-col gap-4">
           <div className="flex items-center justify-between flex-wrap">
-            <h2 className="font-semibold text-text flex items-center gap-2">
+            <h2 className="font-semibold text-text flex items-center gap-2 text-base">
               <Clock size={16} className="text-primary" />
               Today's Classes
               <span className="text-xs text-muted font-normal">({today})</span>
@@ -223,7 +223,7 @@ export default function TeacherDashboard() {
         {/* Today's attendance summary */}
         <div className="card flex flex-col gap-4">
           <div className="flex items-center justify-between flex-wrap">
-            <h2 className="font-semibold text-text flex items-center gap-2">
+            <h2 className="font-semibold text-text flex items-center gap-2 text-base">
               <CalendarCheck size={16} className="text-primary" />
               Today's Attendance
             </h2>
@@ -267,7 +267,7 @@ export default function TeacherDashboard() {
         {/* Notices */}
         <div className="card flex flex-col gap-4 lg:col-span-2">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-text flex items-center gap-2">
+            <h2 className="font-semibold text-text flex items-center gap-2 text-base">
               <Bell size={16} className="text-primary" />
               Latest Notices
             </h2>

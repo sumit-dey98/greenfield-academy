@@ -31,7 +31,7 @@ const ROLE_HINTS = [
 function LoginPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { login } = useAuth()
+  const { login, logout } = useAuth()
 
   const tabParam = searchParams.get("tab")
   const [activeRole, setActiveRole] = useState(null)
@@ -88,6 +88,7 @@ function LoginPageInner() {
           .maybeSingle()
 
         if (student) {
+          logout() 
           login({ ...student, user_type: "student" })
           router.push("/student/dashboard")
           return
@@ -104,6 +105,7 @@ function LoginPageInner() {
           .maybeSingle()
 
         if (teacher) {
+          logout() 
           login({ ...teacher, user_type: "teacher" })
           router.push("/teacher/dashboard")
           return
