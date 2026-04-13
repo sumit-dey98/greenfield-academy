@@ -153,18 +153,18 @@ export default function AdminLayout({ children }) {
     <div className="flex h-screen bg-bg overflow-hidden">
 
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 z-[200] lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       <aside className={`
-        fixed top-0 left-0 h-full w-64 bg-sidebar z-30
+        fixed top-0 left-0 h-full w-64 bg-sidebar z-[300]
         flex flex-col transition-transform duration-300
         lg:static lg:translate-x-0
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
       `}>
 
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-3 px-6 py-5 border-b border-white/10">
+        <Link href="/" className="flex items-center gap-3 px-6 py-5 border-b border-border h-20 shadow-drop">
           <div className="w-10 h-10 rounded-md flex items-center justify-center">
             <img src="/assets/images/logo.png" alt="Greenfield Academy Logo" />
           </div>
@@ -226,13 +226,13 @@ export default function AdminLayout({ children }) {
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-surface border-b border-border px-6 h-16 flex items-center justify-between shrink-0">
+        <header className="bg-surface border-b border-border px-6 h-20 flex items-center justify-between shrink-0 shadow-drop z-[100]">
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-muted hover:text-text">
               <Menu size={20} />
             </button>
             <div>
-              <h1 className="text-sm font-semibold text-text"> Dashboard </h1>
+              <h1 className="text-base font-semibold text-text"> Dashboard </h1>
               <p className="text-xs text-muted">
                 {new Date().toLocaleDateString("en-GB", {
                   weekday: "long", day: "numeric", month: "long", year: "numeric",

@@ -33,8 +33,10 @@
   --color-sidebar-hover: #064e3b;
 
   /* Shadows */
-  --shadow-card: 0 1px 3px rgba(5, 46, 22, 0.07), 0 1px 2px rgba(5, 46, 22, 0.04);
+  --shadow-card: 0 -1px 3px rgba(5, 46, 22, 0.15), 0 1px 2px rgba(5, 46, 22, 0.2);
+  --shadow-drop: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
   --shadow-lg: 0 4px 16px rgba(5, 46, 22, 0.10);
+  --shadow-hover: 0 -1px 3px rgba(8, 119, 54, 0.2), 0 1px 2px var(--color-border);
 
   /* Radius */
   --radius-sm: 4px;
@@ -58,8 +60,10 @@
   --color-sidebar-text: #8aada0;
   --color-sidebar-hover: #111916;
 
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 -1px 3px rgba(12, 68, 37, 0.4), 0 1px 2px rgba(29, 136, 93, 0.3);
+  --shadow-drop: 0 1px 3px rgba(255, 255, 255, 0.2), 0 1px 2px rgba(255, 255, 255, 0.15);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-hover: 0 -1px 3px rgba(19, 179, 86, 0.3), 0 1px 2px rgba(20, 173, 84, 0.4);
 }
 
 /* ── Base ── */
@@ -121,11 +125,15 @@
 
   .card {
     background: var(--color-surface);
-    border: 1px solid var(--color-border);
+    /* border: 1px solid var(--color-surface2); */
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-card);
     padding: 1.5rem;
-    /* will-change: transform, box-shadow; */
+    will-change: box-shadow;
+  }
+
+  .card:hover {
+    box-shadow: var(--shadow-hover);
   }
 
   @media(max-width: 768px) {
@@ -265,6 +273,10 @@
     color: var(--color-faint);
   }
 
+  .table-wrapper {
+    @apply shadow-card border border-border rounded-lg p-0 overflow-hidden;
+  }
+
   .table {
     width: 100%;
     border-collapse: collapse;
@@ -311,10 +323,10 @@
 
   .stat-card {
     background: var(--color-surface);
-    border: 1px solid var(--color-border);
+    /* border: 1px solid var(--color-surface2); */
     border-radius: var(--radius-lg);
     padding: 1.25rem 1.5rem;
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-card) !important;
   }
 
   @media(max-width: 768px) {

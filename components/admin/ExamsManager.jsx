@@ -179,7 +179,7 @@ export default function ExamsManager() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {exams.slice().reverse().map(exam => (
-            <div key={exam.id} className="card flex flex-col gap-3 hover:ring-2 hover:ring-surface-2 transition-all duration-200">
+            <div key={exam.id} className="card flex flex-col gap-3 transition-all duration-200">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex flex-col gap-1 flex-1 min-w-0">
                   <h3 className="font-bold text-text truncate text-base">{exam.name}</h3>

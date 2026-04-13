@@ -117,11 +117,11 @@ greenfield-academy
 │   ├── Navbar.jsx
 │   ├── Preloader.jsx
 │   ├── ScrollTop.jsx
-│   ├── Sidebar.jsx
 │   ├── ThemeToggle.jsx
 │   ├── admin
 │   │   ├── AttendanceManager.jsx
 │   │   ├── ClassesManager.jsx
+│   │   ├── DashboardScreen.jsx
 │   │   ├── EventsManager.jsx
 │   │   ├── ExamsManager.jsx
 │   │   ├── NoticesManager.jsx
@@ -146,7 +146,7 @@ greenfield-academy
 │   │   └── ExamResultsChart.jsx
 │   └── ui
 │       ├── Carousel.jsx
-│       ├── Checkbox.jsx
+│       ├── CheckBox.jsx
 │       ├── ConfirmDialog.jsx
 │       ├── DataTable.jsx
 │       ├── DatePicker.jsx
@@ -154,7 +154,7 @@ greenfield-academy
 │       ├── Input.jsx
 │       ├── Modal.jsx
 │       ├── Radio.jsx
-│       ├── Searchbox.jsx
+│       ├── SearchBox.jsx
 │       ├── Select.jsx
 │       ├── Textarea.jsx
 │       ├── TimePicker.jsx
@@ -182,8 +182,6 @@ greenfield-academy
 │           ├── icon.svg
 │           ├── logo-512.png
 │           └── logo.png
-├── sitenfo.md
-├── supabase_backup.sql
 ├── tailwind.config.js
 └── utils
     └── supabase

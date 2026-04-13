@@ -63,7 +63,7 @@ export default function Testimonials({onReady}) {
 
   return (
     <section className="bg-bg border-t border-surface-2 py-10 md:py-20 px-6 md:px-12">
-      <div className="max-w-5xl mx-auto flex flex-col gap-10">
+      <div className="max-w-6xl mx-auto flex flex-col gap-10">
 
         {/* Header */}
         <div className="text-center">
@@ -75,29 +75,18 @@ export default function Testimonials({onReady}) {
           </h2>
         </div>
 
-        {/* Carousel — chevrons absolutely positioned on md+ */}
         <div className="relative">
-
-          {/* md+: absolute chevrons on sides */}
-          <button
-            onClick={scrollPrev}
-            className="hidden md:flex absolute -left-6 top-1/2 -translate-y-1/2 -translate-x-4 w-9 h-9 rounded-full bg-surface border border-border shadow-card text-muted hover:text-text hover:border-primary items-center justify-center transition-all duration-200 z-10"
-            aria-label="Previous"
-          >
-            <ChevronLeft size={16} />
-          </button>
-
-          <div ref={emblaRef} className="overflow-hidden">
+          <div ref={emblaRef} className="overflow-hidden py-0.5">
             <div className="flex">
               {testimonials.map((t) => (
                 <div
                   key={t.id}
                   className="flex-none w-full md:w-[calc(50%-8px)] px-2"
                 >
-                  <div className="card flex flex-col gap-4 py-8 px-6 relative h-full select-none cursor-grab">
+                  <div className="shadow-card rounded-lg flex flex-col gap-4 py-8 px-6 relative h-full select-none cursor-grab">
 
                     {/* Quote icon */}
-                    <div className="absolute top-5 right-5 text-primary opacity-10">
+                    <div className="absolute top-5 right-5 text-primary opacity-30">
                       <Quote size={36} />
                     </div>
 
@@ -130,23 +119,14 @@ export default function Testimonials({onReady}) {
               ))}
             </div>
           </div>
-
-          <button
-            onClick={scrollNext}
-            className="hidden md:flex absolute -right-6 top-1/2 -translate-y-1/2 translate-x-4 w-9 h-9 rounded-full bg-surface border border-border shadow-card text-muted hover:text-text hover:border-primary items-center justify-center transition-all duration-200 z-10"
-            aria-label="Next"
-          >
-            <ChevronRight size={16} />
-          </button>
         </div>
 
         {/* Dots row */}
         <div className="flex items-center justify-center gap-3">
 
-          {/* chevron left mobile */}
           <button
             onClick={scrollPrev}
-            className="md:hidden w-9 h-9 rounded-full bg-surface border border-border shadow-card text-muted hover:text-text hover:border-primary flex items-center justify-center transition-all duration-200 shrink-0"
+            className="w-9 h-9 rounded-full bg-surface border border-border shadow-card text-muted hover:text-text hover:border-primary flex items-center justify-center transition-all duration-200 shrink-0"
             aria-label="Previous"
           >
             <ChevronLeft size={16} />
@@ -167,10 +147,9 @@ export default function Testimonials({onReady}) {
             ))}
           </div>
 
-          {/* chevron right mobile */}
           <button
             onClick={scrollNext}
-            className="md:hidden w-9 h-9 rounded-full bg-surface border border-border shadow-card text-muted hover:text-text hover:border-primary flex items-center justify-center transition-all duration-200 shrink-0"
+            className="w-9 h-9 rounded-full bg-surface border border-border shadow-card text-muted hover:text-text hover:border-primary flex items-center justify-center transition-all duration-200 shrink-0"
             aria-label="Next"
           >
             <ChevronRight size={16} />

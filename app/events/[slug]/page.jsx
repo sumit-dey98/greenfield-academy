@@ -97,17 +97,7 @@ export default function EventPostPage() {
     General: { bg: "#fef3c7", color: "#92400e" },
   }
 
-  if (loading) return (
-    <div className="min-h-screen flex flex-col bg-bg">
-      <Navbar />
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-muted text-sm min-h-[50vh]">Loading...</div>
-      </div>
-      <Footer />
-    </div>
-  )
-
-  if (!event) return (
+  if (!event && !loading) return (
     <div className="min-h-screen flex flex-col bg-bg">
       <Navbar />
       <div className="flex-1 flex flex-col items-center justify-center gap-4">
@@ -120,10 +110,10 @@ export default function EventPostPage() {
     </div>
   )
 
-  const cat = categoryColor[event.category] ?? categoryColor.General
-  const content = typeof window !== "undefined"
-    ? DOMPurify.sanitize(event.content ?? "")
-    : event.content ?? ""
+  const cat = event ? (categoryColor[event.category] ?? categoryColor.General) : null
+  const content = event
+    ? (typeof window !== "undefined" ? DOMPurify.sanitize(event.content ?? "") : event.content ?? "")
+    : ""
 
   return (
     <div className="min-h-screen flex flex-col bg-bg">
@@ -132,47 +122,96 @@ export default function EventPostPage() {
       <main className="flex-1">
 
         {/* Cover image */}
-        <div className="w-full h-72 md:h-[600px] overflow-hidden relative">
-          <img
-            src={event.cover_image}
-            alt={event.title}
-            className="w-full h-full object-cover"
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background: "linear-gradient(to top, rgba(5,46,22,0.7) 0%, transparent 60%)",
-            }}
-          />
-          <div className="absolute bottom-0 left-0 right-0 px-6 md:px-12 pb-8 max-w-6xl mx-auto">
-            <div className="flex items-center gap-2 mb-3">
-              <span
-                className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                style={{ background: cat.bg, color: cat.color }}
-              >
-                {event.category}
-              </span>
-              <span className="text-xs text-white/60 flex items-center gap-1">
-                <Calendar size={11} />
-                {new Date(event.date).toLocaleDateString("en-GB", {
-                  day: "numeric", month: "long", year: "numeric",
-                })}
-              </span>
+        {loading ? (
+          <div className="w-full h-72 md:h-[600px] relative overflow-hidden bg-surface-2 animate-pulse">
+            <div
+              className="absolute inset-0"
+              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 60%)" }}
+            />
+            <div className="absolute bottom-0 left-0 right-0 px-6 md:px-12 pb-8 max-w-6xl mx-auto flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <div className="h-5 w-16 rounded-full bg-white/20" />
+                <div className="h-4 w-28 rounded bg-white/20" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <div className="h-8 w-2/3 rounded bg-white/20" />
+                <div className="h-8 w-1/2 rounded bg-white/20" />
+              </div>
+              <div className="h-4 w-32 rounded bg-white/20" />
             </div>
-            <h1 className="text-2xl md:text-4xl font-bold text-white leading-tight max-w-3xl">
-              {event.title}
-            </h1>
-            {event.author_name && (
-              <p className="text-sm text-white/60 mt-2">
-                By {event.author_name}
-              </p>
-            )}
           </div>
-        </div>
+        ) : (
+          <div className="w-full h-72 md:h-[600px] overflow-hidden relative">
+            <img
+              src={event.cover_image}
+              alt={event.title}
+              className="w-full h-full object-cover"
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background: "linear-gradient(to top, rgba(5,46,22,0.7) 0%, transparent 60%)",
+              }}
+            />
+            <div className="absolute bottom-0 left-0 right-0 px-6 md:px-12 pb-8 max-w-6xl mx-auto">
+              <div className="flex items-center gap-2 mb-3">
+                <span
+                  className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
+                  style={{ background: cat.bg, color: cat.color }}
+                >
+                  {event.category}
+                </span>
+                <span className="text-xs text-white/60 flex items-center gap-1">
+                  <Calendar size={11} />
+                  {new Date(event.date).toLocaleDateString("en-GB", {
+                    day: "numeric", month: "long", year: "numeric",
+                  })}
+                </span>
+              </div>
+              <h1 className="text-2xl md:text-4xl font-bold text-white leading-tight max-w-3xl">
+                {event.title}
+              </h1>
+              {event.author_name && (
+                <p className="text-sm text-white/60 mt-2">
+                  By {event.author_name}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Body — three column layout */}
         <div className="max-w-screen-2xl mx-auto px-6 py-10">
-          <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_220px] gap-8 items-start">
+          {loading ? (
+            // body skeleton
+            <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_220px] gap-8">
+              <div className="hidden lg:block">
+                <div className="card p-4 flex flex-col gap-2">
+                  <div className="h-3 w-16 rounded bg-surface-2 animate-pulse mb-1" />
+                  {[1, 2, 3].map(i => <div key={i} className="h-3 w-full rounded bg-surface-2 animate-pulse" />)}
+                </div>
+              </div>
+              <div className="flex flex-col gap-4">
+                <div className="h-16 w-full rounded bg-surface-2 animate-pulse" />
+                <div className="h-64 w-full rounded bg-surface-2 animate-pulse" />
+                {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-4 w-full rounded bg-surface-2 animate-pulse" />)}
+              </div>
+              <div className="hidden lg:block">
+                <div className="card p-4 flex flex-col gap-4">
+                  <div className="h-3 w-16 rounded bg-surface-2 animate-pulse" />
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="flex flex-col gap-1.5">
+                      <div className="h-24 w-full rounded-md bg-surface-2 animate-pulse" />
+                      <div className="h-3 w-3/4 rounded bg-surface-2 animate-pulse" />
+                      <div className="h-3 w-1/2 rounded bg-surface-2 animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_220px] gap-8 items-start">
+
 
             {/* Left aside — ToC */}
             <aside className="hidden lg:block sticky top-24 self-start">
@@ -285,7 +324,8 @@ export default function EventPostPage() {
             </aside>
 
           </div>
-        </div >
+          )}
+        </div>
 
       </main >
 

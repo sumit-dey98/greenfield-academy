@@ -256,9 +256,9 @@ export default function DashboardScreen({ basePath = "/admin" }) {
               Manage <ArrowRight size={12} />
             </Link>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-4">
             {notices.map(n => (
-              <div key={n.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-bg ring-1 ring-surface-2">
+              <div key={n.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-surface-2 shadow-hover">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text truncate">{n.title}</p>
                   <p className="text-xs text-faint">

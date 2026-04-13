@@ -30,7 +30,7 @@ export default function Navbar() {
   const isDashboardActive = dashboardLinks.some(l => pathname.startsWith(l.href.split("/").slice(0, 2).join("/")))
 
   return (
-    <nav className="sticky top-0 z-[200] bg-surface border-b border-border shadow-card">
+    <nav className="sticky top-0 z-[200] bg-surface border-b border-border shadow-drop">
       <div className="max-w-7xl mx-auto px-6 py-4 md:h-20 flex items-center justify-between">
 
         {/* Logo */}
@@ -77,7 +77,7 @@ export default function Navbar() {
             </button>
 
             {dropdownOpen && (
-              <div className="absolute top-full right-0 mt-1.5 w-52 bg-surface border border-border rounded-lg shadow-lg overflow-hidden z-50">
+              <div className="absolute top-full right-0 mt-1.5 w-52 bg-surface border border-border rounded-lg shadow-drop overflow-hidden z-50">
                 {dashboardLinks.map(link => (
                   <Link
                     key={link.href}

@@ -190,7 +190,7 @@ export default function TeacherAttendance() {
       </div>
 
       {/* Student list */}
-      <div className="card p-0 overflow-hidden">
+      <div className="table-wrapper p-0 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Users size={15} className="text-primary" />

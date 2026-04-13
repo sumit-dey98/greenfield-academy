@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from "react"
-import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight } from "lucide-react"
 import Select from "@/components/ui/Select"
 
 const MIN_COL_WIDTH = 60
@@ -92,7 +92,7 @@ export default function DataTable({
     }, [])
 
   return (
-    <div className="card p-0 overflow-hidden flex flex-col">
+    <div className="p-0 flex flex-col table-wrapper">
       <div className="overflow-x-auto">
         <table className="table" style={{ tableLayout: "fixed", minWidth: "100%" }}>
           <colgroup>
@@ -181,31 +181,31 @@ export default function DataTable({
 
           <div className="flex items-center gap-1 flex-wrap">
             <button onClick={() => setPage(1)} disabled={page === 1}
-              className="px-2 py-1 rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              «
+              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <ChevronsLeft size={15} />
             </button>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="px-2.5 py-1 rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              Previous
+              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <ChevronLeft size={15} />
             </button>
             {pageNumbers.map((p, i) =>
               p === "..." ? (
                 <span key={`ellipsis-${i}`} className="px-1 text-xs text-faint">…</span>
               ) : (
                 <button key={p} onClick={() => setPage(p)}
-                  className={`px-2.5 py-1 rounded text-xs border transition-colors
+                  className={`p-1 h-6 w-6 flex items-center justify-center rounded text-xs border transition-colors
                     ${page === p ? "bg-primary text-white border-primary" : "border-border bg-surface text-muted hover:text-text"}`}>
                   {p}
                 </button>
               )
             )}
             <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="px-2.5 py-1 rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              Next
+              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <ChevronRight size={15} />
             </button>
             <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
-              className="px-2 py-1 rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              »
+              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <ChevronsRight size={15} />
             </button>
           </div>
         </div>

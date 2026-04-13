@@ -59,6 +59,8 @@ const config = {
       boxShadow: {
         card: 'var(--shadow-card)',
         lg: 'var(--shadow-lg)',
+        drop: 'var(--shadow-drop)',
+        hover: 'var(--shadow-hover)',
       },
     },
   },

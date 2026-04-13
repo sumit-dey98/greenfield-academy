@@ -351,10 +351,10 @@ export default function AttendanceManager() {
           const color = gradeColors[cls.grade] ?? "#059669"
 
           return (
-            <div key={cls.id} className="card p-0 overflow-hidden">
+            <div key={cls.id} className="table-wrapper p-0 overflow-hidden">
               <button
                 onClick={() => setExpandedClass(isExpanded ? null : cls.id)}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-2 transition-colors text-left"
+                className={`w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-2 transition-colors text-left ${isExpanded ? "bg-surface-2" : ""}`}
               >
                 <div
                   className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold shrink-0"

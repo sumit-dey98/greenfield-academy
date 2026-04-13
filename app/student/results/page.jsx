@@ -226,7 +226,7 @@ export default function StudentResults() {
       )}
 
       {/* Results table */}
-      <div className="card p-0 overflow-x-auto">
+      <div className="table-wrapper p-0 overflow-x-auto">
         <table className="table">
           <thead>
             <tr>

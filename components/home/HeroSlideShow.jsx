@@ -49,7 +49,7 @@ export default function HeroSlideshow({ className, homeClasses }) {
                 className="w-full h-full object-cover"
               />
               <div className="absolute bottom-0 left-0 right-0 bg-primary px-4 py-2.5">
-                <p className="text-bg text-sm font-semibold text-center">{slide.caption}</p>
+                <p className="text-white text-sm font-semibold text-center">{slide.caption}</p>
               </div>
             </div>
           ))}

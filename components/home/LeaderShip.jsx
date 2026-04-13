@@ -45,7 +45,7 @@ export default function Leadership({
           <h2 className="text-3xl font-bold text-text">{title}</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-8 ">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-8">
           {leadership.map(l => (
             <div key={l.id} className="flex flex-col items-start text-left gap-4">
 
@@ -54,7 +54,7 @@ export default function Leadership({
                 <img
                   src={l.avatar}
                   alt={l.name}
-                  className="w-52 h-52 rounded-lg object-cover bg-surface-2 ring-2 ring-primary/20"
+                  className="w-52 h-52 rounded-lg object-cover bg-surface-2 ring-2 ring-primary"
                 />
                 {message && 
                   <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center">

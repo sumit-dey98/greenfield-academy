@@ -157,9 +157,9 @@ export default function NoticesManager() {
           <p className="text-muted text-sm">No notices yet.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {notices.map(notice => (
-            <div key={notice.id} className="card flex items-start gap-4 hover:ring hover:ring-surface-2 transition-all duration-200">
+            <div key={notice.id} className="card flex items-start gap-4 transition-all duration-200">
               <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`badge border ${categoryBadge[notice.category] ?? "badge-info"}`}>{notice.category}</span>

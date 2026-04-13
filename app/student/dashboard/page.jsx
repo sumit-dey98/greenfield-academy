@@ -349,9 +349,9 @@ export default function StudentDashboard() {
           {todaySchedule.length === 0 ? (
             <p className="text-sm text-muted">No classes scheduled for today.</p>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-4">
               {todaySchedule.map((cls, i) => (
-                <div key={cls.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-2">
+                <div key={cls.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-2 shadow-card">
                   <div className="flex flex-col items-center justify-center w-14 shrink-0">
                     <span className="text-xs font-semibold text-primary">{cls.start_time}</span>
                     <span className="text-xs text-faint">{cls.end_time}</span>

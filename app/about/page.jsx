@@ -205,7 +205,7 @@ export default function AboutPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {values.map((v, i) => (
-                <div key={i} className="card flex gap-4 items-start">
+                <div key={i} className="card hover:shadow-card flex gap-4 items-start">
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                     style={{ background: `${v.color}18`, color: v.color, boxShadow: `0 0 1px 1px ${v.color}30` }}

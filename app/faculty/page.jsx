@@ -129,7 +129,7 @@ function FacultyCard({ member, color }) {
     .toUpperCase()
 
   return (
-    <div className="card flex flex-col gap-4 hover:ring hover:ring-surface-2 transition-all duration-200 will-change-transform">
+    <div className="card flex flex-col gap-4 transition-all duration-200 will-change-transform">
 
       <div className="flex items-center gap-4">
         {member.avatar ? (

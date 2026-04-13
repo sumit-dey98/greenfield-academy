@@ -20,9 +20,9 @@ export default function Hero() {
             </div>
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold leading-tight text-text mb-5">
+          <h1 className="text-4xl md:text-6xl font-bold leading-normal text-text mb-5">
             Shaping Futures,{" "}
-            <span className="text-primary">Building Leaders</span>
+            <span className="text-primary leading-normal">Building Leaders</span>
           </h1>
 
           <p className="text-lg text-muted leading-relaxed mb-8">

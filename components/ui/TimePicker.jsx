@@ -130,7 +130,7 @@ const TimePicker = forwardRef(function TimePicker(
       {/* Dropdown */}
       {open && (
         <div className="relative z-50 h-0 overflow-visible">
-          <div className="absolute top-1 left-0 bg-surface border border-border rounded-lg shadow-lg overflow-hidden w-64">
+          <div className="absolute top-1 left-0 bg-surface border border-border rounded-lg shadow-drop overflow-hidden w-64">
 
             {/* Preview */}
             <div className="px-4 py-3 border-b border-border bg-surface2 flex items-center justify-between">

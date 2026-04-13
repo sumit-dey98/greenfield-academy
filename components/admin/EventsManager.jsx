@@ -206,9 +206,9 @@ export default function EventsManager() {
           <p className="text-muted text-sm">No events yet.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {events.map(event => (
-            <div key={event.id} className="card flex items-center gap-4 hover:ring hover:ring-surface-2 transition-all duration-200">
+            <div key={event.id} className="card flex items-center gap-4 transition-all duration-200">
               {event.cover_image && (
                 <img src={event.cover_image} alt={event.title} className="w-20 h-14 rounded-lg object-cover shrink-0 hidden sm:block" />
               )}

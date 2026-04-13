@@ -157,7 +157,7 @@ export default function TipTapEditor({ content, onChange }) {
             <span className="text-xs font-bold leading-none" style={{ color: editor.getAttributes("textStyle").color || "currentColor" }}>A</span>
             <span className="w-3.5 h-1 rounded-sm" style={{ background: editor.getAttributes("textStyle").color || "#000" }} />
           </button>
-          <div className="absolute top-full left-0 mt-1 p-2 bg-surface border border-border rounded-lg shadow-lg z-50 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity flex gap-1 flex-wrap w-28">
+          <div className="absolute top-full left-0 mt-1 p-2 bg-surface border border-border rounded-lg shadow-drop z-50 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity flex gap-1 flex-wrap w-28">
             {COLORS.map(c => (
               <button
                 key={c}

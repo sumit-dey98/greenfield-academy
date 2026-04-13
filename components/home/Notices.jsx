@@ -26,6 +26,7 @@ export default function Notices({onReady}) {
 
       if (!error) setNotices(data)
       setLoading(false)
+      onReady?.()
     }
     fetchNotices()
     onReady?.()
@@ -55,7 +56,28 @@ export default function Notices({onReady}) {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[1, 2, 3].map(i => (
-              <div key={i} className="card h-44 bg-surface-2 animate-pulse" />
+              <div key={i} className="card flex flex-col gap-3">
+                {/* badge row */}
+                <div className="flex justify-between items-center">
+                  <div className="h-5 w-16 rounded-full bg-surface-2 animate-pulse" />
+                </div>
+                {/* title */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="h-4 w-full rounded bg-surface-2 animate-pulse" />
+                  <div className="h-4 w-3/4 rounded bg-surface-2 animate-pulse" />
+                </div>
+                {/* content lines */}
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <div className="h-3 w-full rounded bg-surface-2 animate-pulse" />
+                  <div className="h-3 w-full rounded bg-surface-2 animate-pulse" />
+                  <div className="h-3 w-2/3 rounded bg-surface-2 animate-pulse" />
+                </div>
+                {/* date footer */}
+                <div className="flex items-center gap-1.5 mt-auto pt-3 border-t border-border">
+                  <div className="h-3 w-3 rounded bg-surface-2 animate-pulse" />
+                  <div className="h-3 w-24 rounded bg-surface-2 animate-pulse" />
+                </div>
+              </div>
             ))}
           </div>
         ) : (
@@ -63,7 +85,7 @@ export default function Notices({onReady}) {
               {notices.map(notice => (
                 <div
                   key={notice.id}
-                  className="card flex flex-col gap-3 cursor-default transition-shadow duration-200 hover:ring-2 hover:ring-surface-2"
+                  className="card flex flex-col gap-3 cursor-default transition-shadow duration-200 hover:shadow-hover"
                 >
                   <div className="flex justify-between items-center">
                     <span className={`badge ${categoryBadge[notice.category] ?? "badge-info"}`}>

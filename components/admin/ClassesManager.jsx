@@ -179,7 +179,7 @@ export default function ClassesManager() {
           const color = gradeColors[cls.grade] ?? "#059669"
 
           return (
-            <div key={cls.id} className="card flex flex-col gap-4 hover:ring-2 hover:ring-surface-2 duration-200">
+            <div key={cls.id} className="card flex flex-col gap-4 duration-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div

@@ -15,23 +15,27 @@ export default function Preloader({ ready }) {
   const [visible, setVisible] = useState(true)
   const [fading, setFading] = useState(false)
   const [message, setMessage] = useState(MESSAGES[0].text)
-
   useEffect(() => {
     const timers = MESSAGES.slice(1).map(({ after, text }) =>
       setTimeout(() => setMessage(text), after)
     )
-    return () => timers.forEach(clearTimeout)
+
+    const maxTimer = setTimeout(() => {
+      setFading(true)
+      setTimeout(() => setVisible(false), FADE_DURATION)
+    }, MAX_WAIT)
+
+    return () => {
+      timers.forEach(clearTimeout)
+      clearTimeout(maxTimer)
+    }
   }, [])
 
   useEffect(() => {
-    const maxTimer = setTimeout(() => triggerFade(), MAX_WAIT)
-
-    if (ready) {
-      clearTimeout(maxTimer)
-      triggerFade()
-    }
-
-    return () => clearTimeout(maxTimer)
+    if (!ready) return
+    setFading(true)
+    const t = setTimeout(() => setVisible(false), FADE_DURATION)
+    return () => clearTimeout(t)
   }, [ready])
 
   const triggerFade = () => {
@@ -61,17 +65,21 @@ export default function Preloader({ ready }) {
         </div>
       </div>
 
-      {/* Spinner */}
-      <div className="w-8 h-8 rounded-full border-2 border-surface-2 border-t-primary animate-spin" />
+      
+      <div className="flex gap-8 items-center"> 
+        {/* Spinner */}
+        <div className="w-8 h-8 rounded-full border-2 border-surface-2 border-t-primary animate-spin" />
 
-      {/* Message */}
-      <p
-        key={message}
-        className="text-sm text-muted animate-pulse"
-        style={{ transition: "opacity 0.3s ease" }}
-      >
-        {message}
-      </p>
+        {/* Message */}
+        <p
+          key={message}
+          className="text-sm text-muted animate-pulse"
+          style={{ transition: "opacity 0.3s ease" }}
+        >
+          {message}
+        </p>
+      </div>
+      
     </div>
   )
 }

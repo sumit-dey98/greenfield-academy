@@ -152,7 +152,7 @@ export default function TeacherSchedule() {
           <p className="text-muted text-sm">No classes scheduled for {activeDay}.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {filtered.map((cls, i) => {
             const color = DAY_COLORS[DAYS.indexOf(activeDay) % DAY_COLORS.length]
             return (

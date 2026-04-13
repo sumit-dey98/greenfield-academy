@@ -14,10 +14,13 @@ const Select = forwardRef(function Select(
     placeholder = "Select an option",
     searchable = true,
     clearable = true,
-    renderValue,     
+    renderValue,
     disabled = false,
+    isPortal = false,
+    menuPlacement = "auto",   // "auto" | "top" | "bottom"
+    menuPosition = "absolute",   // "fixed" | "absolute"
     className = "",
-    ...props        
+    ...props
   },
   ref
 ) {
@@ -51,12 +54,28 @@ const Select = forwardRef(function Select(
     if (!triggerRef.current) return {}
     const rect = triggerRef.current.getBoundingClientRect()
     const spaceBelow = window.innerHeight - rect.bottom
-    const above = spaceBelow < DROPDOWN_HEIGHT + 12
+    const spaceAbove = rect.top
+
+    let above = false
+    if (menuPlacement === "top") above = true
+    else if (menuPlacement === "bottom") above = false
+    else above = spaceBelow < DROPDOWN_HEIGHT + 12 && spaceAbove > spaceBelow
+
+    if (menuPosition === "absolute") {
+      return {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        zIndex: 1000,
+        ...(above ? { bottom: "100%", marginBottom: 4 } : { top: "100%", marginTop: 4 }),
+      }
+    }
+
     return {
       position: "fixed",
       left: rect.left,
       width: rect.width,
-      zIndex: 100,
+      zIndex: 9999,
       ...(above
         ? { bottom: window.innerHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }
@@ -74,11 +93,14 @@ const Select = forwardRef(function Select(
   useEffect(() => {
     if (!open) return
     const handler = (e) => {
-      if (
-        triggerRef.current?.contains(e.target) ||
-        dropdownRef.current?.contains(e.target) ||
-        e.target.closest("[data-datepicker-calendar]")  
-      ) return
+      if (triggerRef.current?.contains(e.target)) return
+      if (dropdownRef.current?.contains(e.target)) return
+      const path = e.composedPath?.() ?? []
+      const insidePortal = path.some(
+        el => el?.dataset?.selectDropdown !== undefined ||
+          el?.dataset?.datepickerCalendar !== undefined
+      )
+      if (insidePortal) return
       setOpen(false)
       setQuery("")
     }
@@ -87,21 +109,21 @@ const Select = forwardRef(function Select(
   }, [open])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || menuPosition === "absolute") return
     const handler = (e) => {
       if (dropdownRef.current?.contains(e.target)) return
       setDropStyle(computeStyle())
     }
     window.addEventListener("scroll", handler, true)
     return () => window.removeEventListener("scroll", handler, true)
-  }, [open])
+  }, [open, menuPosition])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || menuPosition === "absolute") return
     const handler = () => setDropStyle(computeStyle())
     window.addEventListener("resize", handler)
     return () => window.removeEventListener("resize", handler)
-  }, [open])
+  }, [open, menuPosition])
 
   useEffect(() => {
     if (open && searchable) setTimeout(() => searchRef.current?.focus(), 50)
@@ -112,12 +134,12 @@ const Select = forwardRef(function Select(
     if (e.key === "Enter" && !open) setOpen(true)
   }, [open])
 
-  const dropdown = open ? (
+  const dropdownNode = open ? (
     <div
       ref={dropdownRef}
-      data-select-dropdown 
-      style={dropStyle}
-      className="bg-surface border border-border rounded-lg shadow-lg overflow-hidden"
+      data-select-dropdown=""
+      style={menuPosition === "absolute" ? dropStyle : dropStyle}
+      className="bg-surface border border-border rounded-lg shadow-drop overflow-hidden"
     >
       {searchable && (
         <div className="flex items-center gap-2 py-2 border-b border-border">
@@ -165,8 +187,11 @@ const Select = forwardRef(function Select(
     </div>
   ) : null
 
+  // Wrap in relative container when using absolute positioning (no portal)
+  const wrapperClass = menuPosition === "absolute" ? "relative" : ""
+
   return (
-    <div className="flex flex-col w-full">
+    <div className={`flex flex-col w-full ${wrapperClass}`}>
       {label && (
         <label className="text-xs font-semibold text-text mb-1.5">
           {label}{required && <span className="text-danger ml-0.5">*</span>}
@@ -206,7 +231,12 @@ const Select = forwardRef(function Select(
         </div>
       </button>
 
-      {typeof window !== "undefined" && createPortal(dropdown, document.body)}
+      {menuPosition === "absolute"
+        ? dropdownNode
+        : (isPortal && typeof window !== "undefined")
+          ? createPortal(dropdownNode, document.body)
+          : dropdownNode
+      }
 
       {hint && !error && <p className="text-xs text-faint mt-1">{hint}</p>}
       {error && (

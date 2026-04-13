@@ -372,7 +372,7 @@ export default function ScheduleManager() {
       </div>
 
       {/* Timetable grid */}
-      <div className="card p-0 overflow-hidden">
+      <div className="p-0 table-wrapper">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse" style={{ minWidth: "700px" }}>
             <thead>

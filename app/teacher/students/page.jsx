@@ -153,7 +153,7 @@ export default function TeacherStudents() {
     },
     {
       key: "expand",
-      label: "Action",
+      label: "View",
       sortable: false,
       width: 50,
       render: (row) => (
@@ -268,11 +268,11 @@ export default function TeacherStudents() {
                   {studentResults.length === 0 ? (
                     <p className="text-sm text-muted">No results recorded yet.</p>
                   ) : (
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-4">
                       {studentResults.map(r => (
                         <div
                           key={r.id}
-                          className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface2 border border-border"
+                          className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface2 shadow-hover border-border"
                         >
                           <div>
                             <p className="text-sm font-medium text-text">{r.exam}</p>

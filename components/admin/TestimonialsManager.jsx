@@ -142,7 +142,7 @@ export default function TestimonialsManager() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {testimonials.map(t => (
-            <div key={t.id} className={`card flex flex-col gap-3 hover:ring hover:ring-surface-2 transition-all duration-200 ${!t.active ? "opacity-50" : ""}`}>
+            <div key={t.id} className={`card flex flex-col gap-3 transition-all duration-200 ${!t.active ? "opacity-50" : ""}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   {t.avatar ? (

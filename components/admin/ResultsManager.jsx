@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/context/AuthContext"
 import {
   Plus, Pencil, Trash2,
-  Save, AlertCircle, CheckCircle, ChevronDown, Filter,
+  Save, AlertCircle, CheckCircle, ChevronDown, ChevronRight,
 } from "lucide-react"
 import SearchBox from "@/components/ui/SearchBox"
 import Select from "@/components/ui/Select"
@@ -387,7 +387,7 @@ export default function ResultsManager() {
       </div>
 
       {/* Class cards */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {visibleClasses.map(cls => {
           const classStudents = getStudentsForClass(cls.id)
           const color = gradeColors[cls.grade] ?? "#059669"
@@ -395,7 +395,7 @@ export default function ResultsManager() {
             <button
               key={cls.id}
               onClick={() => openClassModal(cls)}
-              className="card flex items-center gap-4 text-left hover:bg-surface-2 transition-colors duration-200 cursor-pointer w-full"
+              className="card shadow-hover flex items-center gap-4 text-left hover:bg-surface-2 transition-colors duration-200 cursor-pointer w-full"
             >
               <div
                 className="w-11 h-11 rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0"
@@ -409,7 +409,7 @@ export default function ResultsManager() {
                   {classStudents.length} students
                 </p>
               </div>
-              <ChevronDown size={16} className="text-faint shrink-0" />
+              <ChevronRight size={16} className="text-faint shrink-0" />
             </button>
           )
         })}
@@ -441,7 +441,7 @@ export default function ResultsManager() {
                 <span className="w-5 h-5 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-4">
                 {getStudentsForClass(selectedClass.id).length === 0 ? (
                   <p className="text-sm text-muted py-4">No students in this class.</p>
                 ) : (
@@ -453,7 +453,7 @@ export default function ResultsManager() {
                       : null
 
                     return (
-                      <div key={student.id} className="border border-border rounded-lg overflow-hidden">
+                      <div key={student.id} className="table-wrapper">
                         {/* Accordion header */}
                         <div
                           onClick={() => setExpandedStudent(isOpen ? null : student.id)}
@@ -500,7 +500,7 @@ export default function ResultsManager() {
 
                           <button
                             onClick={e => { e.stopPropagation(); openAdd(student.id) }}
-                            className="btn btn-outline text-xs shrink-0 py-1 px-2 w-fit"
+                            className="btn btn-primary text-xs shrink-0 py-1 px-2 w-fit"
                           >
                             <Plus size={12} />
                             <span className="hidden sm:inline">Add</span>
@@ -520,13 +520,13 @@ export default function ResultsManager() {
                             ) : (
                               <div className="max-h-96 overflow-y-auto overflow-x-auto">
                                 <table className="w-full text-sm border-collapse min-w-[480px]">
-                                  <thead className="sticky top-0 z-10 bg-surface border-b border-border">
+                                  <thead className="sticky top-0 z-10 bg-surface-2 border-b border-border">
                                     <tr>
                                       <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Subject</th>
                                       <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Marks</th>
                                       <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Grade</th>
                                       <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide hidden sm:table-cell">Remarks</th>
-                                      <th className="px-3 sm:px-4 py-2.5 w-14" />
+                                        <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide hidden sm:table-cell" > Action </th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-border">
@@ -559,7 +559,7 @@ export default function ResultsManager() {
                                         </td>
                                         <td className="px-3 sm:px-4 py-3 text-xs text-muted hidden sm:table-cell">{result.remarks}</td>
                                         <td className="px-3 sm:px-4 py-3">
-                                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                                          <div className="flex items-center gap-1  transition-opacity duration-150">
                                             <button
                                               onClick={() => openEdit(result)}
                                               className="p-1.5 rounded-md hover:bg-surface-2 text-faint hover:text-text transition-colors"

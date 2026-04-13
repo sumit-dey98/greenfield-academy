@@ -168,14 +168,14 @@ export default function TeacherDashboard() {
 
       {/* Unmarked attendance alert */}
       {unmarked > 0 && (
-        <div className="flex items-center justify-between gap-4 px-5 py-4 bg-primary-light border border-primary rounded-lg flex-wrap">
+        <div className="flex items-center justify-between gap-4 px-5 py-4 bg-red-100 dark:bg-red-950/30 rounded-lg flex-wrap shadow-card">
           <div className="flex items-center gap-3">
-            <AlertCircle size={18} className="text-primary shrink-0" />
-            <p className="text-sm font-medium text-text">
+            <AlertCircle size={18} className="text-red-600 shrink-0" />
+            <p className="text-sm font-medium text-red-500">
               {unmarked} student{unmarked !== 1 ? "s" : ""} not marked for today.
             </p>
           </div>
-          <Link href="/teacher/attendance" className="btn btn-primary text-xs">
+          <Link href="/teacher/attendance" className="btn btn-danger text-xs">
             Mark Attendance <ArrowRight size={13} />
           </Link>
         </div>
@@ -201,9 +201,9 @@ export default function TeacherDashboard() {
           {todaySchedule.length === 0 ? (
             <p className="text-sm text-muted">No classes scheduled for today.</p>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-4">
               {todaySchedule.map((cls, i) => (
-                <div key={cls.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-2">
+                <div key={cls.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-2 shadow-card">
                   <div className="flex flex-col items-center justify-center w-14 shrink-0">
                     <span className="text-xs font-semibold text-primary">{cls.start_time}</span>
                     <span className="text-xs text-faint">{cls.end_time}</span>
@@ -275,11 +275,11 @@ export default function TeacherDashboard() {
               View all <ArrowRight size={12} />
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {notices.map(notice => (
               <div
                 key={notice.id}
-                className="flex flex-col gap-1.5 p-3 rounded-lg bg-surface-2 border border-border"
+                className="flex flex-col gap-1.5 p-3 rounded-lg bg-surface-2 shadow-card"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className={`badge ${categoryBadge[notice.category] ?? "badge-info"}`}>

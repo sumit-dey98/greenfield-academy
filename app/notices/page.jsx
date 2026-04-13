@@ -22,7 +22,7 @@ function NoticeCard({ notice }) {
   const isExpired = notice.expires && new Date(notice.expires) < new Date()
 
   return (
-    <div className={`card flex flex-col gap-0 overflow-hidden transition-all duration-200 hover:bg-surface-2 hover:ring hover:ring-surface-2 ${isExpired ? "opacity-60" : ""}`}>
+    <div className={`card flex flex-col gap-0 overflow-hidden transition-all duration-200 hover:bg-surface-2 ${isExpired ? "opacity-60" : ""}`}>
 
       {/* Clickable header */}
       <button

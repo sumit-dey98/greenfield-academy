@@ -125,7 +125,7 @@ export default function EventsPage() {
                     <Link
                       key={event.id}
                       href={`/events/${event.slug}`}
-                      className="card p-0 overflow-hidden flex flex-col no-underline group transition-all duration-200 hover:bg-surface hover:ring hover:ring-surface-2"
+                      className="card p-0 overflow-hidden flex flex-col no-underline group transition-all duration-200 hover:bg-surface"
                     >
                       {/* Cover image */}
                       <div className="relative h-48 overflow-hidden">

@@ -12,7 +12,7 @@ const MONTHS = [
 const DAY_HEADERS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
 
 const MONTH_OPTIONS = MONTHS.map((m, i) => ({
-  label: m,
+  label: m.slice(0, 3),
   value: String(i),
   short: m.slice(0, 3),
 }))
@@ -96,7 +96,7 @@ function CalendarGrid({ year, month, selected, onSelect, minDate, maxDate, range
               onClick={() => onSelect(date)}
               onMouseEnter={() => onHover?.(date)}
               onMouseLeave={() => onHover?.(null)}
-              className={`h-8 w-8 rounded-md text-xs font-medium transition-colors duration-100
+              className={`flex items-center justify-center h-6 w-6 rounded-md text-[12px] font-medium transition-colors duration-100
                 ${isSelected
                   ? "bg-primary text-white"
                   : inRange
@@ -125,14 +125,14 @@ function SinglePicker({ value, onChange, minDate, maxDate }) {
   const month = viewing.getMonth()
 
   return (
-    <div className="p-3 w-72">
+    <div className="px-2 py-3 w-full">
       <div className="flex items-center justify-between mb-3 gap-2">
         <button type="button" onClick={() => setViewing(new Date(year, month - 1, 1))}
-          className="p-1.5 rounded-md hover:bg-surface-2 text-muted hover:text-text transition-colors shrink-0">
+          className="hover:text-primary text-muted transition-colors shrink-0">
           <ChevronLeft size={15} />
         </button>
         <div className="flex items-center gap-1 flex-1 justify-center">
-          <div className="w-28">
+          <div className="w-20">
             <Select
               options={MONTH_OPTIONS}
               value={String(month)}
@@ -140,7 +140,9 @@ function SinglePicker({ value, onChange, minDate, maxDate }) {
               searchable={false}
               clearable={false}
               renderValue={opt => opt.short}
-              className="h-8"
+              className="h-7"
+              isPortal={false}
+              menuPosition="absolute"
             />
           </div>
           <div className="w-20">
@@ -150,12 +152,14 @@ function SinglePicker({ value, onChange, minDate, maxDate }) {
               onChange={v => setViewing(new Date(Number(v), month, 1))}
               searchable={false}
               clearable={false}
-              className="h-8"
+              className="h-7"
+              isPortal={false}
+              menuPosition="absolute"
             />
           </div>
         </div>
         <button type="button" onClick={() => setViewing(new Date(year, month + 1, 1))}
-          className="p-1.5 rounded-md hover:bg-surface-2 text-muted hover:text-text transition-colors shrink-0">
+          className="hover:text-primary text-muted transition-colors shrink-0">
           <ChevronRight size={15} />
         </button>
       </div>
@@ -204,16 +208,18 @@ function RangePicker({ value = {}, onChange, minDate, maxDate }) {
               <ChevronLeft size={15} />
             </button>
             <div className="flex items-center gap-1 flex-1 justify-center">
-              <div className="w-28">
+              <div className="w-20">
                 <Select options={MONTH_OPTIONS} value={String(leftMonth)}
                   onChange={v => setViewing(new Date(leftYear, Number(v), 1))}
                   searchable={false} clearable={false}
-                  renderValue={opt => opt.short} className="h-8" />
+                  renderValue={opt => opt.short} className="h-8"
+                  isPortal={false} menuPosition="absolute" />
               </div>
               <div className="w-20">
                 <Select options={YEAR_OPTIONS} value={String(leftYear)}
                   onChange={v => setViewing(new Date(Number(v), leftMonth, 1))}
-                  searchable={false} clearable={false} className="h-8" />
+                  searchable={false} clearable={false} className="h-8"
+                  isPortal={false} menuPosition="absolute" />
               </div>
             </div>
           </div>
@@ -232,12 +238,14 @@ function RangePicker({ value = {}, onChange, minDate, maxDate }) {
                 <Select options={MONTH_OPTIONS} value={String(rightMonth)}
                   onChange={v => setViewing(new Date(leftYear, Number(v) - 1, 1))}
                   searchable={false} clearable={false}
-                  renderValue={opt => opt.short} className="h-8" />
+                  renderValue={opt => opt.short} className="h-8"
+                  isPortal={false} menuPosition="absolute" />
               </div>
               <div className="w-20">
                 <Select options={YEAR_OPTIONS} value={String(rightYear)}
                   onChange={v => setViewing(new Date(Number(v), leftMonth, 1))}
-                  searchable={false} clearable={false} className="h-8" />
+                  searchable={false} clearable={false} className="h-8"
+                  isPortal={false} menuPosition="absolute" />
               </div>
             </div>
             <button type="button" onClick={() => setViewing(new Date(leftYear, leftMonth + 1, 1))}
@@ -263,7 +271,11 @@ const DatePicker = forwardRef(function DatePicker(
     minDate, maxDate,
     placeholder = "DD/MM/YYYY",
     disabled = false,
+    isPortal = true,
+    menuPlacement = "auto",   // "auto" | "top" | "bottom"
+    menuPosition = "absolute",   // "fixed" | "absolute"
     className = "",
+    width="w-[220px]",
     ...props
   },
   ref
@@ -277,11 +289,26 @@ const DatePicker = forwardRef(function DatePicker(
     if (!triggerRef.current) return {}
     const rect = triggerRef.current.getBoundingClientRect()
     const spaceBelow = window.innerHeight - rect.bottom
-    const above = spaceBelow < 340
+    const spaceAbove = rect.top
+
+    let above = false
+    if (menuPlacement === "top") above = true
+    else if (menuPlacement === "bottom") above = false
+    else above = spaceBelow < 340 && spaceAbove > spaceBelow
+
+    if (menuPosition === "absolute") {
+      return {
+        position: "absolute",
+        left: 0,
+        zIndex: 50,
+        ...(above ? { bottom: "100%", marginBottom: 4 } : { top: "100%", marginTop: 4 }),
+      }
+    }
+
     return {
       position: "fixed",
       left: rect.left,
-      zIndex: 50,
+      zIndex: 9999,
       ...(above
         ? { bottom: window.innerHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }
@@ -298,12 +325,13 @@ const DatePicker = forwardRef(function DatePicker(
   useEffect(() => {
     if (!open) return
     const handler = (e) => {
-      if (
-        triggerRef.current?.contains(e.target) ||
-        calendarRef.current?.contains(e.target) ||
-        e.target.closest("[data-select-dropdown]") || 
-        e.target.closest("[data-datepicker-calendar]") 
-      ) return
+      if (triggerRef.current?.contains(e.target)) return
+      if (calendarRef.current?.contains(e.target)) return
+      const path = e.composedPath?.() ?? []
+      const insideChildPortal = path.some(
+        el => el?.dataset?.selectDropdown !== undefined
+      )
+      if (insideChildPortal) return
       setOpen(false)
     }
     document.addEventListener("mousedown", handler)
@@ -311,21 +339,21 @@ const DatePicker = forwardRef(function DatePicker(
   }, [open])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || menuPosition === "absolute") return
     const handler = (e) => {
       if (calendarRef.current?.contains(e.target)) return
       setDropStyle(computeStyle())
     }
     window.addEventListener("scroll", handler, true)
     return () => window.removeEventListener("scroll", handler, true)
-  }, [open])
+  }, [open, menuPosition])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || menuPosition === "absolute") return
     const handler = () => setDropStyle(computeStyle())
     window.addEventListener("resize", handler)
     return () => window.removeEventListener("resize", handler)
-  }, [open])
+  }, [open, menuPosition])
 
   const displayValue = range
     ? value?.start ? `${value.start}${value.end ? ` → ${value.end}` : " → ..."}` : ""
@@ -336,12 +364,12 @@ const DatePicker = forwardRef(function DatePicker(
     onChange(range ? { start: "", end: "" } : "")
   }
 
-  const calendar = open ? (
+  const calendarNode = open ? (
     <div
       ref={calendarRef}
-      data-datepicker-calendar
+      data-datepicker-calendar=""
       style={dropStyle}
-      className="bg-surface border border-border rounded-lg shadow-lg"
+      className="bg-surface border border-border rounded-lg shadow-drop"
     >
       {range ? (
         <RangePicker value={value}
@@ -355,8 +383,10 @@ const DatePicker = forwardRef(function DatePicker(
     </div>
   ) : null
 
+  const wrapperClass = menuPosition === "absolute" ? "relative" : ""
+
   return (
-    <div className="flex flex-col w-full">
+    <div className={`flex flex-col w-full ${wrapperClass}`}>
       {label && (
         <label className="text-xs font-semibold text-text mb-1.5">
           {label}{required && <span className="text-danger ml-0.5">*</span>}
@@ -387,7 +417,12 @@ const DatePicker = forwardRef(function DatePicker(
         )}
       </button>
 
-      {typeof window !== "undefined" && createPortal(calendar, document.body)}
+      {menuPosition === "absolute"
+        ? calendarNode
+        : (isPortal && typeof window !== "undefined")
+          ? createPortal(calendarNode, document.body)
+          : calendarNode
+      }
 
       {hint && !error && <p className="text-xs text-faint">{hint}</p>}
       {error && (

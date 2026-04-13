@@ -204,7 +204,7 @@ export default function TeacherGradesPage() {
       </div>
 
       {!selectedExam && (
-        <div className="card flex flex-col items-center py-16 gap-3 text-center">
+        <div className="table-wrapper flex flex-col items-center py-16 gap-3 text-center">
           <BookOpen size={36} className="text-faint" />
           <p className="text-muted text-sm">Select the exam to enter marks.</p>
         </div>
@@ -230,7 +230,7 @@ export default function TeacherGradesPage() {
 
       {/* Class cards */}
       {selectedExam && classIds.length === 0 && (
-        <div className="card flex flex-col items-center py-16 gap-3 text-center">
+        <div className="table-wrapper flex flex-col items-center py-16 gap-3 text-center">
           <BookOpen size={36} className="text-faint" />
           <p className="text-muted text-sm">You are not assigned to teach any classes.</p>
         </div>
@@ -247,12 +247,12 @@ export default function TeacherGradesPage() {
         const color = gradeColors[cls?.grade] ?? "#059669"
 
         return (
-          <div key={classId} className="card p-0 overflow-hidden">
+          <div key={classId} className="table-wrapper p-0 overflow-hidden">
 
             {/* Class header */}
             <button
               onClick={() => handleExpandClass(classId)}
-              className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-2 transition-colors text-left"
+              className="w-full flex items-center gap-4 px-5 py-4 bg-surface-2 transition-colors text-left"
             >
               <div
                 className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold shrink-0"
