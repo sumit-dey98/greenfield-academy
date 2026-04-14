@@ -1,6 +1,7 @@
 import "./globals.css"
 import { AuthProvider } from "@/context/AuthContext"
 import ScrollTop from "@/components/ScrollTop"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const metadata = {
   title: "Greenfield Academy",
@@ -31,6 +32,7 @@ export default function RootLayout({ children }) {
           {children}
           <ScrollTop />
         </AuthProvider>
+        <SpeedInsights />
       </body>
     </html>
   )
