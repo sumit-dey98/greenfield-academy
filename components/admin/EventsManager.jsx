@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import {
+  listEvents, createEvent, updateEvent, deleteEvent,
+  listEventImages, addEventImage, deleteEventImage,
+} from "@/lib/api/events"
 import { useAuth } from "@/context/AuthContext"
 import { Calendar, Plus, Pencil, Trash2, X, Save, Eye, EyeOff, AlertCircle } from "lucide-react"
 import Input from "@/components/ui/Input"
@@ -52,12 +55,14 @@ export default function EventsManager() {
   const [modalOpen, setModalOpen] = useState(false)
 
   const fetchEvents = async () => {
-    const { data } = await supabase
-      .from("events")
-      .select("*")
-      .order("date", { ascending: false })
-    if (data) setEvents(data)
-    setLoading(false)
+    try {
+      const page = await listEvents({ limit: 200 })
+      setEvents(page?.items ?? [])
+    } catch (err) {
+      console.error("Failed to load events:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchEvents() }, [])
@@ -93,12 +98,13 @@ export default function EventsManager() {
       cover_image: event.cover_image ?? "",
       published: event.published,
     })
-    const { data: imgs } = await supabase
-      .from("event_images")
-      .select("*")
-      .eq("event_id", event.id)
-      .order("sort_order", { ascending: true })
-    setImageUrls(imgs?.map(i => i.url) ?? [""])
+    try {
+      const imgs = await listEventImages(event.id)
+      setImageUrls(imgs?.length ? imgs.map(i => i.url) : [""])
+    } catch (err) {
+      console.error("Failed to load event images:", err)
+      setImageUrls([""])
+    }
     setErrors({})
     setModalOpen(true)
   }
@@ -117,6 +123,7 @@ export default function EventsManager() {
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setSaving(true)
 
+    // author_id is set server-side from the logged-in account; only author_name is sent.
     const payload = {
       title: form.title.trim(),
       slug: form.slug.trim(),
@@ -127,58 +134,57 @@ export default function EventsManager() {
       cover_image: form.cover_image.trim() || null,
       published: publish !== null ? publish : form.published,
       ...(editing ? {} : {
-        author_id: isSuperAdmin ? (superAdminName ?? "Super Admin") : (user?.id ?? null),
         author_name: isSuperAdmin ? (superAdminName ?? "Super Admin") : (user?.name ?? "Admin"),
       }),
     }
-    let eventId = editing
-    let error
 
-    if (editing) {
-      const res = await supabase.from("events").update(payload).eq("id", editing)
-      error = res.error
-    } else {
-      eventId = `evt_${Date.now()}`
-      const res = await supabase.from("events").insert({ id: eventId, ...payload })
-      error = res.error
+    try {
+      const saved = editing
+        ? await updateEvent(editing, payload)
+        : await createEvent(payload)
+      const eventId = saved?.id ?? editing
+
+      // Replace the gallery images with the current list.
+      const validUrls = imageUrls.map(u => u.trim()).filter(Boolean)
+      const existing = editing ? (await listEventImages(eventId).catch(() => [])) : []
+      for (const img of existing) {
+        await deleteEventImage(eventId, img.id)
+      }
+      for (let i = 0; i < validUrls.length; i++) {
+        await addEventImage(eventId, { url: validUrls[i], sort_order: i })
+      }
+
+      setModalOpen(false)
+      fetchEvents()
+    } catch (err) {
+      console.error("Failed to save event:", err)
+      setErrors({ save: err?.message || "Could not save the event." })
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) return
-
-    const validUrls = imageUrls.filter(u => u.trim())
-    if (validUrls.length > 0) {
-      await supabase.from("event_images").delete().eq("event_id", eventId)
-      await supabase.from("event_images").insert(
-        validUrls.map((url, i) => ({
-          id: `eimg_${eventId}_${i}`,
-          event_id: eventId,
-          url: url.trim(),
-          sort_order: i,
-        }))
-      )
-    }
-
-    setModalOpen(false)
-    fetchEvents()
   }
 
   const handleDelete = async (id) => {
     if (!attemptWrite("cms")) return
     setDeleting(id)
-    const { error } = await supabase.from("events").delete().eq("id", id)
-    if (!error) await supabase.from("event_images").delete().eq("event_id", id)
-    setDeleting(null)
-    fetchEvents()
+    try {
+      await deleteEvent(id) // backend cascades images
+    } catch (err) {
+      console.error("Failed to delete event:", err)
+    } finally {
+      setDeleting(null)
+      fetchEvents()
+    }
   }
 
   const togglePublish = async (event) => {
     if (!attemptWrite("cms")) return
-    await supabase
-      .from("events")
-      .update({ published: !event.published })
-      .eq("id", event.id)
-    fetchEvents()
+    try {
+      await updateEvent(event.id, { published: !event.published })
+      fetchEvents()
+    } catch (err) {
+      console.error("Failed to toggle publish:", err)
+    }
   }
 
   return (

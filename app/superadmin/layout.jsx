@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
-import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/context/AuthContext"
 import {
   Shield, LayoutDashboard, Users, BookOpen,
   Bell, Calendar, MessageSquare, Settings,
-  LogOut, Menu, X, ChevronDown, User, CalendarDays, ClipboardList, CalendarCheck, GraduationCap
+  LogOut, Menu, X, ChevronDown, User, CalendarDays, ClipboardList, CalendarCheck, GraduationCap, KeyRound
 } from "lucide-react"
 import ThemeToggle from "@/components/ThemeToggle"
 
@@ -43,6 +43,11 @@ const navItems = [
     label: "Settings",
     href: "/superadmin/settings",
     icon: <Settings size={18} />,
+  },
+  {
+    label: "Reset Requests",
+    href: "/superadmin/password-reset-requests",
+    icon: <KeyRound size={18} />,
   },
   {
     label: "Users",
@@ -99,43 +104,19 @@ function NavGroup({ item, pathname, setSidebarOpen }) {
 export default function SuperAdminLayout({ children }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [user, setUser] = useState(null)
-  const [checking, setChecking] = useState(true)
+  const { user, loading, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
-    if (pathname === "/superadmin/login") {
-      setChecking(false)
-      return
+    if (pathname === "/superadmin/login") return
+    if (loading) return
+    if (!user || user.role !== "super_admin") {
+      router.push("/superadmin/login")
     }
+  }, [user, loading, pathname])
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!session) {
-        router.push("/superadmin/login")
-        return
-      }
-
-      const { data: sa } = await supabase
-        .from("superadmin")
-        .select("id, email, name")
-        .eq("id", session.user.id)
-        .single()
-
-      if (!sa) {
-        await supabase.auth.signOut()
-        router.push("/superadmin/login")
-        return
-      }
-
-      setUser(sa)
-      setChecking(false)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [pathname])
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
+  const handleLogout = () => {
+    logout()
     router.push("/superadmin/login")
   }
 
@@ -147,7 +128,7 @@ export default function SuperAdminLayout({ children }) {
     return <>{children}</>
   }
 
-  if (checking) return null
+  if (loading || !user || user.role !== "super_admin") return null
 
   return (
     <div className="flex h-screen bg-bg overflow-hidden">

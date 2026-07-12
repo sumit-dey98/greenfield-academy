@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase"
+import { getFaculty as fetchFaculty } from "@/lib/api/public"
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
 import { GraduationCap, Mail, Phone, BookOpen } from "lucide-react"
@@ -13,14 +13,17 @@ const AVATAR_COLORS = [
 ]
 
 async function getFaculty() {
-  const [facultyRes, subjectsRes] = await Promise.all([
-    supabase.from("teachers").select("*").order("join_date", { ascending: true }),
-    supabase.from("subjects").select("id, name").order("name", { ascending: true }),
-  ])
-  return {
-    faculty: facultyRes.data ?? [],
-    subjects: subjectsRes.data ?? [],
+  let faculty = []
+  try {
+    faculty = (await fetchFaculty()) ?? []
+  } catch (err) {
+    console.error("Failed to load faculty:", err)
   }
+  // Subjects are derived from the faculty list (used for the count + avatar colors).
+  const subjects = [...new Set(faculty.map(f => f.subject).filter(Boolean))]
+    .sort()
+    .map(name => ({ name }))
+  return { faculty, subjects }
 }
 
 export default async function FacultyPage() {

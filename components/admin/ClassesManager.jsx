@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { listClasses, createClass, updateClass, deleteClass } from "@/lib/api/classes"
+import { listStudents, listTeachers } from "@/lib/api/adminPeople"
 import { useAuth } from "@/context/AuthContext"
 import { BookOpen, Users, Save, CheckCircle, Plus, Trash2, AlertCircle, Pencil } from "lucide-react"
 import Input from "@/components/ui/Input"
@@ -33,15 +34,20 @@ export default function ClassesManager() {
   const [deleting, setDeleting] = useState(false)
 
   const fetchAll = async () => {
-    const [classesRes, studentsRes, teachersRes] = await Promise.all([
-      supabase.from("classes").select("*").order("grade", { ascending: true }),
-      supabase.from("students").select("id, class_id"),
-      supabase.from("teachers").select("id, name, subject"),
-    ])
-    if (classesRes.data) setClasses(classesRes.data)
-    if (studentsRes.data) setStudents(studentsRes.data)
-    if (teachersRes.data) setTeachers(teachersRes.data)
-    setLoading(false)
+    try {
+      const [classesData, studentsPage, teachersPage] = await Promise.all([
+        listClasses(),
+        listStudents({ limit: 200 }),
+        listTeachers({ limit: 200 }),
+      ])
+      setClasses(classesData ?? [])
+      setStudents(studentsPage?.items ?? [])
+      setTeachers(teachersPage?.items ?? [])
+    } catch (err) {
+      console.error("Failed to load classes:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchAll() }, [])
@@ -51,7 +57,7 @@ export default function ClassesManager() {
 
   const teacherOptions = [
     { label: "None", value: "" },
-    ...teachers.map(t => ({ label: `${t.name} (${t.subject})`, value: t.id })),
+    ...teachers.map(t => ({ label: `${t.name} (${t.subject_name ?? "—"})`, value: t.id })),
   ]
 
   const set = (key, val) => {
@@ -107,22 +113,22 @@ export default function ClassesManager() {
       teacher_id: form.teacher_id || null,
     }
 
-    let error
-    if (modalMode === "edit") {
-      const res = await supabase.from("classes").update(payload).eq("id", editingId)
-      error = res.error
-    } else {
-      const id = `cls_${Date.now()}`
-      const res = await supabase.from("classes").insert({ id, ...payload })
-      error = res.error
+    try {
+      if (modalMode === "edit") {
+        await updateClass(editingId, payload)
+      } else {
+        await createClass(payload)
+      }
+      setSaved(true)
+      setModalOpen(false)
+      fetchAll()
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save class:", err)
+      setErrors({ save: err?.message || "Could not save the class." })
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) { setModalOpen(false); return }
-    setSaved(true)
-    setModalOpen(false)
-    fetchAll()
-    setTimeout(() => setSaved(false), 3000)
   }
 
   const openConfirmDelete = (cls) => {
@@ -134,11 +140,16 @@ export default function ClassesManager() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
-    await supabase.from("classes").delete().eq("id", deleteTarget.id)
-    setDeleting(false)
-    setConfirmOpen(false)
-    setDeleteTarget(null)
-    fetchAll()
+    try {
+      await deleteClass(deleteTarget.id)
+    } catch (err) {
+      console.error("Failed to delete class:", err)
+    } finally {
+      setDeleting(false)
+      setConfirmOpen(false)
+      setDeleteTarget(null)
+      fetchAll()
+    }
   }
 
   const gradeColors = { 9: "#059669", 10: "#0891b2", 11: "#9333ea", 12: "#f59e0b" }
@@ -238,7 +249,7 @@ export default function ClassesManager() {
                   </div>
                   <div>
                     <p className="text-xs font-medium text-text">{teacher.name}</p>
-                    <p className="text-xs text-faint">{teacher.subject}</p>
+                    <p className="text-xs text-faint">{teacher.subject_name}</p>
                   </div>
                 </div>
               )}

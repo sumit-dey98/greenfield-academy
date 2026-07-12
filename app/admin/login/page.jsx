@@ -3,14 +3,13 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/context/AuthContext"
 import Input from "@/components/ui/Input"
 import {  LogIn, ArrowLeft } from "lucide-react"
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const { login, logout } = useAuth()
+  const { login } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -22,23 +21,21 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      const { data: adminUser } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", email.trim().toLowerCase())
-        .maybeSingle()
+      const account = await login(email, password)
 
-      if (adminUser) {
-        logout()  
-        login({ ...adminUser, user_type: "admin" })
-        router.push("/admin/dashboard")
+      if (account.user_type !== "admin") {
+        setError("This isn't a staff account. Use the student/teacher portal instead.")
         return
       }
-
-      setError("No admin account found with this email address.")
+      // super_admin accounts get their own portal; other admin roles use /admin.
+      router.push(account.role === "super_admin" ? "/superadmin/dashboard" : "/admin/dashboard")
     } catch (err) {
       console.error("Login error:", err)
-      setError("Something went wrong. Please try again.")
+      setError(
+        err?.error_code === "INVALID_CREDENTIALS"
+          ? "Invalid email or password."
+          : "Something went wrong. Please try again."
+      )
     } finally {
       setLoading(false)
     }
@@ -106,12 +103,6 @@ export default function AdminLoginPage() {
             <ArrowLeft size={14} strokeWidth={2.5} /> Back to home
           </a>
         </p>
-
-        <div className="bg-surface border border-surface-2 rounded-lg p-6">
-          <em>There is no real authentication for this. Only check is to look for admin email in the db. Try: </em>
-          <p><strong>Email: </strong>admin@greenfieldacademy.edu.bd</p>
-          <strong>Password:</strong> admin123
-        </div>
       </div>
     </div>
   )

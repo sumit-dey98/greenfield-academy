@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getEvents } from "@/lib/api/public"
 import Link from "next/link"
 import { Calendar, Tag, ArrowRight } from "lucide-react"
 import Navbar from "@/components/Navbar"
@@ -16,16 +16,17 @@ export default function EventsPage() {
   const [activeCategory, setActiveCategory] = useState("All")
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("events")
-        .select("*")
-        .eq("published", true)
-        .order("date", { ascending: false })
-      if (data) setEvents(data)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const page = await getEvents({ limit: 200 })
+        setEvents(page?.items ?? [])
+      } catch (err) {
+        console.error("Failed to load events:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
   }, [])
 
   const latest = events.slice(0, 3)

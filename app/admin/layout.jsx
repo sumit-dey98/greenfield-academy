@@ -7,7 +7,7 @@ import Link from "next/link"
 import {
   GraduationCap, LayoutDashboard, Users, BookOpen,
   Bell, Calendar, MessageSquare, Settings,
-  LogOut, Menu, X, ChevronDown, User, CalendarDays, ClipboardList, CalendarCheck
+  LogOut, Menu, X, ChevronDown, User, CalendarDays, ClipboardList, CalendarCheck, KeyRound
 } from "lucide-react"
 import ThemeToggle from "@/components/ThemeToggle"
 
@@ -43,6 +43,11 @@ const navItems = [
     label: "Settings",
     href: "/admin/settings",
     icon: <Settings size={18} />,
+  },
+  {
+    label: "Reset Requests",
+    href: "/admin/password-reset-requests",
+    icon: <KeyRound size={18} />,
   },
 ]
 
@@ -106,7 +111,7 @@ export default function AdminLayout({ children }) {
     if (!user) { router.push("/admin/login"); return }
     if (user.user_type !== "admin") { router.push("/admin/login"); return }
 
-    const academicRoutes = ["/admin/students", "/admin/teachers", "/admin/classes", "/admin/schedule", "/admin/results", "/admin/attendance", "/admin/exams"]
+    const academicRoutes = ["/admin/students", "/admin/teachers", "/admin/classes", "/admin/schedule", "/admin/results", "/admin/attendance", "/admin/exams", "/admin/password-reset-requests"]
     if (academicRoutes.some(r => pathname.startsWith(r)) && !can("academic")) {
       router.push("/admin/dashboard"); return
     }
@@ -127,6 +132,7 @@ export default function AdminLayout({ children }) {
     if (item.href === "/admin/settings") {
       return SETTINGS_ROLES.includes(user?.role) ? item : null
     }
+    if (item.href === "/admin/password-reset-requests") return can("academic") ? item : null
     if (!item.children) return item
     if (item.label === "Academic") return can("academic") ? item : null
     if (item.label === "Content") return can("cms") ? item : null
@@ -142,7 +148,7 @@ export default function AdminLayout({ children }) {
 
   if (loading || !user) return null
 
-  const academicRoutes = ["/admin/students", "/admin/teachers", "/admin/classes", "/admin/schedule", "/admin/results", "/admin/attendance", "/admin/exams"]
+  const academicRoutes = ["/admin/students", "/admin/teachers", "/admin/classes", "/admin/schedule", "/admin/results", "/admin/attendance", "/admin/exams", "/admin/password-reset-requests"]
   const cmsRoutes = ["/admin/notices", "/admin/events", "/admin/testimonials"]
 
   if (academicRoutes.some(r => pathname.startsWith(r)) && !can("academic")) return null

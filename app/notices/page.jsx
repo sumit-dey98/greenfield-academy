@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getNotices } from "@/lib/api/public"
 import { Bell, Calendar, ChevronDown, Search, X } from "lucide-react"
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
@@ -112,15 +112,17 @@ export default function NoticesPage() {
   const [visible, setVisible] = useState(6)
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("notices")
-        .select("*")
-        .order("date", { ascending: false })
-      if (data) setNotices(data)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const page = await getNotices({ limit: 200 })
+        setNotices(page?.items ?? [])
+      } catch (err) {
+        console.error("Failed to load notices:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
   }, [])
 
   useEffect(() => {

@@ -4,7 +4,6 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
-import { supabase } from "@/lib/supabase"
 import Input from "@/components/ui/Input"
 import { LogIn } from "lucide-react"
 
@@ -14,40 +13,33 @@ export default function SuperAdminLogin() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const { logout } = useAuth()
+  const { login, logout } = useAuth()
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError("")
 
-    logout() 
+    try {
+      const account = await login(email, password)
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+      if (account.role !== "super_admin") {
+        logout()
+        setError("You do not have superadmin access.")
+        return
+      }
 
-    if (authError) {
-      setError(authError.message)
+      router.push("/superadmin/dashboard")
+    } catch (err) {
+      console.error("Login error:", err)
+      setError(
+        err?.error_code === "INVALID_CREDENTIALS"
+          ? "Invalid email or password."
+          : "Something went wrong. Please try again."
+      )
+    } finally {
       setLoading(false)
-      return
     }
-
-    const { data: sa, error: saError } = await supabase
-      .from("superadmin")
-      .select("id")
-      .eq("id", data.user.id)
-      .single()
-
-    if (!sa || saError) {
-      await supabase.auth.signOut()
-      setError("You do not have superadmin access.")
-      setLoading(false)
-      return
-    }
-
-    router.push("/superadmin/dashboard")
   }
 
   return (

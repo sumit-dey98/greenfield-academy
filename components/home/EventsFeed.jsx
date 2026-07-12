@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getEvents } from "@/lib/api/public"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import Carousel from "@/components/ui/Carousel"
@@ -11,17 +11,17 @@ export default function EventsFeed({onReady}) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("events")
-        .select("id, title, slug, cover_image, category, date, excerpt")
-        .eq("published", true)
-        .order("date", { ascending: false })
-        .limit(3)
-      if (data) setEvents(data)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const page = await getEvents({ limit: 3 })
+        setEvents(page?.items ?? [])
+      } catch (err) {
+        console.error("Failed to load events:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
     onReady?.()
   }, [])
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMyAttendance } from "@/lib/api/students"
 import { CalendarCheck, CalendarX, Clock, Percent } from "lucide-react"
 import {
   LineChart, Line,
@@ -32,16 +32,17 @@ export default function StudentAttendance() {
 
   useEffect(() => {
     if (!user) return
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("attendance")
-        .select("*")
-        .eq("student_id", user.id)
-        .order("date", { ascending: false })
-      if (data) setAttendance(data)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const data = await getMyAttendance()
+        setAttendance(data ?? [])
+      } catch (err) {
+        console.error("Failed to load attendance:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
   }, [user])
 
   const total = attendance.length

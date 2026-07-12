@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { listStudents, createStudent, updateStudent, deleteStudent } from "@/lib/api/adminPeople"
+import { listClasses } from "@/lib/api/classes"
 import { useAuth } from "@/context/AuthContext"
 import {
   Plus, Pencil, Trash2, Save,
@@ -15,7 +16,7 @@ import DatePicker from "@/components/ui/DatePicker"
 import Modal from "@/components/ui/Modal"
 import ConfirmDialog from "@/components/ui/ConfirmDialog"
 
-const GENDERS = ["Male", "Female", "Other"]
+const GENDERS = ["Male", "Female"]
 
 function formatDateForDisplay(isoDate) {
   if (!isoDate) return ""
@@ -56,13 +57,18 @@ export default function StudentsManager() {
   const [deleting, setDeleting] = useState(false)
 
   const fetchAll = async () => {
-    const [studentsRes, classesRes] = await Promise.all([
-      supabase.from("students").select("*").order("roll", { ascending: true }),
-      supabase.from("classes").select("*").order("grade", { ascending: true }),
-    ])
-    if (studentsRes.data) setStudents(studentsRes.data)
-    if (classesRes.data) setClasses(classesRes.data)
-    setLoading(false)
+    try {
+      const [studentsPage, classesData] = await Promise.all([
+        listStudents({ limit: 200 }),
+        listClasses(),
+      ])
+      setStudents(studentsPage?.items ?? [])
+      setClasses(classesData ?? [])
+    } catch (err) {
+      console.error("Failed to load students:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchAll() }, [])
@@ -137,6 +143,7 @@ export default function StudentsManager() {
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setSaving(true)
 
+    // id and role are server-managed; password is set by the student at first login.
     const payload = {
       name: form.name.trim(),
       email: form.email.trim(),
@@ -148,26 +155,24 @@ export default function StudentsManager() {
       guardian: form.guardian.trim(),
       guardian_phone: form.guardian_phone.trim(),
       class_id: form.class_id,
-      role: "student",
-      avatar: null,
     }
 
-    let error
-    if (modalMode === "edit") {
-      const res = await supabase.from("students").update(payload).eq("id", editingId)
-      error = res.error
-    } else {
-      const id = `std_${Date.now()}`
-      const res = await supabase.from("students").insert({ id, ...payload })
-      error = res.error
+    try {
+      if (modalMode === "edit") {
+        await updateStudent(editingId, payload)
+      } else {
+        await createStudent(payload)
+      }
+      setSaved(true)
+      setModalOpen(false)
+      fetchAll()
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save student:", err)
+      setErrors({ save: err?.message || "Could not save the student." })
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) { setModalOpen(false); return }
-    setSaved(true)
-    setModalOpen(false)
-    fetchAll()
-    setTimeout(() => setSaved(false), 3000)
   }
 
   const openConfirmDelete = (student) => {
@@ -179,11 +184,16 @@ export default function StudentsManager() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
-    await supabase.from("students").delete().eq("id", deleteTarget.id)
-    setDeleting(false)
-    setConfirmOpen(false)
-    setDeleteTarget(null)
-    fetchAll()
+    try {
+      await deleteStudent(deleteTarget.id)
+    } catch (err) {
+      console.error("Failed to delete student:", err)
+    } finally {
+      setDeleting(false)
+      setConfirmOpen(false)
+      setDeleteTarget(null)
+      fetchAll()
+    }
   }
 
   const columns = [

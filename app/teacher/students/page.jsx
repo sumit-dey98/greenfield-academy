@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMyClass, getMyResults } from "@/lib/api/teachers"
 import { useAuth } from "@/context/AuthContext"
 import { Users, ChevronDown, Phone, MapPin, User, TrendingUp, Eye } from "lucide-react"
 import DataTable from "@/components/ui/DataTable"
@@ -23,7 +23,7 @@ const gradeColor = {
 }
 
 export default function TeacherStudents() {
-  const { user, setUser } = useAuth()
+  const { user } = useAuth()
   const [students, setStudents] = useState([])
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
@@ -33,33 +33,25 @@ export default function TeacherStudents() {
   useEffect(() => {
     if (!user) return
     const fetchAll = async () => {
-      const { data: studentData } = await supabase
-        .from("students")
-        .select("*")
-        .eq("class_id", user.class_id)
-        .order("roll", { ascending: true })
-
-      if (studentData) {
+      try {
+        // Homeroom roster (StudentOut now carries the display fields).
+        const roster = await getMyClass()
+        const studentData = roster?.students ?? []
         setStudents(studentData)
 
-        // fetch results for teacher's subject for these students
-        const ids = studentData.map(s => s.id)
-        if (ids.length > 0) {
-          const { data: resultData } = await supabase
-            .from("results")
-            .select("*, subjects(name, code)")
-            .in("student_id", ids)
-            .eq("subjects.name", user.subject)
-
-          // filter results where subject matches teacher's subject
-          const filtered = (resultData ?? []).filter(
-            r => r.subjects?.name === user.subject
-          )
+        // Results this teacher can see for their homeroom class, narrowed to their subject.
+        const classId = roster?.class_info?.id
+        if (classId) {
+          const page = await getMyResults({ class_id: classId, limit: 200 })
+          const filtered = (page?.items ?? []).filter(r => r.subject_name === user.subject)
           setResults(filtered)
         }
+      } catch (err) {
+        // 404 = teacher has no homeroom class; just show an empty roster.
+        if (err?.status !== 404) console.error("Failed to load students:", err)
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
     fetchAll()
   }, [user])

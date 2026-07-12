@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { listTeachers, createTeacher, updateTeacher, deleteTeacher } from "@/lib/api/adminPeople"
+import { listClasses } from "@/lib/api/classes"
+import { listSubjects } from "@/lib/api/subjects"
 import { useAuth } from "@/context/AuthContext"
 import {
   Plus, Pencil, Trash2, Save,
@@ -70,8 +72,8 @@ function formatDateForDB(ddmmyyyy) {
 }
 
 const emptyForm = {
-  name: "", email: "", subject: "", role: "",
-  phone: "", join_date: "", class_id: "",
+  name: "", email: "", subject_id: "", role: "",
+  phone: "", join_date: "",
 }
 
 export default function TeachersManager() {
@@ -95,15 +97,20 @@ export default function TeachersManager() {
   const [deleting, setDeleting] = useState(false)
 
   const fetchAll = async () => {
-    const [teachersRes, classesRes, subjectsRes] = await Promise.all([
-      supabase.from("teachers").select("*").order("join_date", { ascending: true }),
-      supabase.from("classes").select("*"),
-      supabase.from("subjects").select("id, name").order("name", { ascending: true }),
-    ])
-    if (teachersRes.data) setTeachers(teachersRes.data)
-    if (classesRes.data) setClasses(classesRes.data)
-    if (subjectsRes.data) setSubjects(subjectsRes.data)
-    setLoading(false)
+    try {
+      const [teachersPage, classesData, subjectsData] = await Promise.all([
+        listTeachers({ limit: 200 }),
+        listClasses(),
+        listSubjects(),
+      ])
+      setTeachers(teachersPage?.items ?? [])
+      setClasses(classesData ?? [])
+      setSubjects(subjectsData ?? [])
+    } catch (err) {
+      console.error("Failed to load teachers:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchAll() }, [])
@@ -134,14 +141,9 @@ export default function TeachersManager() {
     return AVATAR_COLORS[idx % AVATAR_COLORS.length] ?? AVATAR_COLORS[0]
   }
 
-  const classOptions = [
-    { label: "None", value: "" },
-    ...classes.map(c => ({ label: c.name, value: c.id })),
-  ]
-
   const subjectOptions = [
     { label: "None", value: "" },
-    ...subjects.map(s => ({ label: s.name, value: s.name })),
+    ...subjects.map(s => ({ label: s.name, value: s.id })),
   ]
 
   const setField = (key, val) => {
@@ -173,11 +175,10 @@ export default function TeachersManager() {
     setForm({
       name: teacher.name,
       email: teacher.email,
-      subject: teacher.subject ?? "",
+      subject_id: teacher.subject_id ?? "",
       role: teacher.role ?? "",
       phone: teacher.phone ?? "",
       join_date: formatDateForDisplay(teacher.join_date),
-      class_id: teacher.class_id ?? "",
     })
     setErrors({})
     setSaved(false)
@@ -189,33 +190,32 @@ export default function TeachersManager() {
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setSaving(true)
 
+    // Homeroom (class_id) is managed in the Classes manager; password is self-set at login.
     const payload = {
       name: form.name.trim(),
       email: form.email.trim(),
-      subject: form.subject || null,
+      subject_id: form.subject_id || null,
       role: form.role.trim(),
       phone: form.phone.trim(),
       join_date: formatDateForDB(form.join_date),
-      class_id: form.class_id || null,
-      avatar: null,
     }
 
-    let error
-    if (modalMode === "edit") {
-      const res = await supabase.from("teachers").update(payload).eq("id", editingId)
-      error = res.error
-    } else {
-      const id = `tch_${Date.now()}`
-      const res = await supabase.from("teachers").insert({ id, ...payload })
-      error = res.error
+    try {
+      if (modalMode === "edit") {
+        await updateTeacher(editingId, payload)
+      } else {
+        await createTeacher(payload)
+      }
+      setSaved(true)
+      setModalOpen(false)
+      fetchAll()
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save teacher:", err)
+      setErrors({ save: err?.message || "Could not save the teacher." })
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) { setModalOpen(false); return }
-    setSaved(true)
-    setModalOpen(false)
-    fetchAll()
-    setTimeout(() => setSaved(false), 3000)
   }
 
   const openConfirmDelete = (teacher) => {
@@ -227,18 +227,23 @@ export default function TeachersManager() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
-    await supabase.from("teachers").delete().eq("id", deleteTarget.id)
-    setDeleting(false)
-    setConfirmOpen(false)
-    setDeleteTarget(null)
-    fetchAll()
+    try {
+      await deleteTeacher(deleteTarget.id)
+    } catch (err) {
+      console.error("Failed to delete teacher:", err)
+    } finally {
+      setDeleting(false)
+      setConfirmOpen(false)
+      setDeleteTarget(null)
+      fetchAll()
+    }
   }
 
   const columns = [
     {
       key: "name", label: "Teacher", sortable: true, width: 220,
       render: (row) => {
-        const color = getAvatarColor(row.subject)
+        const color = getAvatarColor(row.subject_name)
         return (
           <div className="flex items-center gap-2.5">
             <div
@@ -259,12 +264,12 @@ export default function TeachersManager() {
       },
     },
     {
-      key: "subject", label: "Subject", sortable: true, width: 140,
+      key: "subject_name", label: "Subject", sortable: true, width: 140,
       render: (row) => {
-        if (!row.subject) return <span className="text-sm text-faint">—</span>
+        if (!row.subject_name) return <span className="text-sm text-faint">—</span>
         return (
-          <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${getSubjectBadge(row.subject)}`}>
-            {row.subject}
+          <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${getSubjectBadge(row.subject_name)}`}>
+            {row.subject_name}
           </span>
         )
       },
@@ -382,7 +387,6 @@ export default function TeachersManager() {
               searchable={false}
             />
             <Input label="Role" value={form.role} onChange={e => setField("role", e.target.value)} placeholder="e.g., Senior Lecturer, Principal..." error={errors.role} />
-            <Select label="Assigned Class" options={classOptions} value={form.class_id} onChange={v => setField("class_id", v)} placeholder="Select class" searchable={false} />
             <DatePicker label="Join Date" value={form.join_date} onChange={v => setField("join_date", v)} />
           </div>
 

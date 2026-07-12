@@ -1,7 +1,11 @@
 'use client'
 
 import { useEffect, useState, useCallback } from "react"
-import { supabase } from "@/lib/supabase"
+import { listResults, upsertResult, deleteResult } from "@/lib/api/results"
+import { listClasses } from "@/lib/api/classes"
+import { listSubjects } from "@/lib/api/subjects"
+import { listExams } from "@/lib/api/exams"
+import { listStudents } from "@/lib/api/adminPeople"
 import { useAuth } from "@/context/AuthContext"
 import {
   Plus, Pencil, Trash2,
@@ -71,36 +75,24 @@ export default function ResultsManager() {
   // ── Initial load ──────────────────────────────────────────
   useEffect(() => {
     const init = async () => {
-      const [classesRes, studentsRes, subjectsRes, examsRes] = await Promise.all([
-        supabase.from("classes").select("*").order("grade", { ascending: true }),
-        supabase.from("students").select("id, name, roll, class_id").order("roll", { ascending: true }),
-        supabase.from("subjects").select("*").order("name", { ascending: true }),
-        supabase.from("exams").select("*").order("start_date", { ascending: false }),
-      ])
-
-      const classesData = classesRes.data ?? []
-      const studentsData = studentsRes.data ?? []
-      const subjectsData = subjectsRes.data ?? []
-      const examsData = examsRes.data ?? []
-
-      setClasses(classesData)
-      setStudents(studentsData)
-      setSubjects(subjectsData)
-      setExams(examsData)
-
-      // Find latest exam with results
-      if (examsData.length > 0) {
-        const { data: examCounts } = await supabase
-          .from("results")
-          .select("exam_id")
-          .in("exam_id", examsData.map(e => e.id))
-
-        const examIdsWithResults = new Set((examCounts ?? []).map(r => r.exam_id))
-        const latestExam = examsData.find(e => examIdsWithResults.has(e.id))
-        if (latestExam) setExamFilter(latestExam.id)
+      try {
+        const [classesData, studentsPage, subjectsData, examsData] = await Promise.all([
+          listClasses(),
+          listStudents({ limit: 200 }),
+          listSubjects(),
+          listExams(),
+        ])
+        const examsSorted = (examsData ?? []).slice().sort((a, b) => (b.start_date ?? "").localeCompare(a.start_date ?? ""))
+        setClasses(classesData ?? [])
+        setStudents(studentsPage?.items ?? [])
+        setSubjects(subjectsData ?? [])
+        setExams(examsSorted)
+        if (examsSorted[0]) setExamFilter(examsSorted[0].id)
+      } catch (err) {
+        console.error("Failed to load results data:", err)
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
     init()
   }, [])
@@ -109,35 +101,18 @@ export default function ResultsManager() {
   useEffect(() => {
     if (!examFilter) { setTotalCount(0); return }
     const fetchCount = async () => {
-      const { count } = await supabase
-        .from("results")
-        .select("*", { count: "exact", head: true })
-        .eq("exam_id", examFilter)
-      setTotalCount(count ?? 0)
+      try {
+        const page = await listResults({ exam_id: examFilter, limit: 1 })
+        setTotalCount(page?.total ?? 0)
+      } catch {
+        setTotalCount(0)
+      }
     }
     fetchCount()
   }, [examFilter])
 
-  // ── Exams that have results ───────────────────────────────
-  const [examsWithResults, setExamsWithResults] = useState([])
-  useEffect(() => {
-    if (exams.length === 0) return
-    const fetchExamsWithResults = async () => {
-      const { data } = await supabase
-        .from("results")
-        .select("exam_id")
-        .in("exam_id", exams.map(e => e.id))
-      const ids = new Set((data ?? []).map(r => r.exam_id))
-      setExamsWithResults(exams.filter(e => ids.has(e.id)))
-    }
-    fetchExamsWithResults()
-  }, [exams])
-
-  const examFilterOptions = examsWithResults.map(e => ({
-    label: e.name,
-    value: e.id,
-  }))
-
+  // Exam filter shows all exams (the API returns totals per exam directly).
+  const examFilterOptions = exams.map(e => ({ label: e.name, value: e.id }))
   const examOptions = exams.map(e => ({ label: e.name, value: e.id }))
 
   // ── Lazy load results for a class ─────────────────────────
@@ -147,28 +122,18 @@ export default function ResultsManager() {
     if (resultsCache[cacheKey]) return resultsCache[cacheKey]
 
     setModalResultsLoading(true)
-    const classStudentIds = students
-      .filter(s => s.class_id === cls.id)
-      .map(s => s.id)
-
-    if (classStudentIds.length === 0) {
-      setModalResultsLoading(false)
+    try {
+      const page = await listResults({ class_id: cls.id, exam_id: examFilter, limit: 2000 })
+      const results = page?.items ?? []
+      setResultsCache(prev => ({ ...prev, [cacheKey]: results }))
+      return results
+    } catch (err) {
+      console.error("Failed to load results:", err)
       return []
+    } finally {
+      setModalResultsLoading(false)
     }
-
-    const { data } = await supabase
-      .from("results")
-      .select("*, exam_id, subjects(name, code), exams(name, status)")
-      .in("student_id", classStudentIds)
-      .eq("exam_id", examFilter)
-      .order("student_id", { ascending: true })
-      .range(0, 9999)
-
-    const results = data ?? []
-    setResultsCache(prev => ({ ...prev, [cacheKey]: results }))
-    setModalResultsLoading(false)
-    return results
-  }, [examFilter, students, resultsCache])
+  }, [examFilter, resultsCache])
 
   const openClassModal = async (cls) => {
     setSelectedClass(cls)
@@ -184,26 +149,18 @@ export default function ResultsManager() {
     if (!selectedClass || !examFilter) return
     const cacheKey = `${selectedClass.id}_${examFilter}`
     setModalResultsLoading(true)
-    const classStudentIds = students
-      .filter(s => s.class_id === selectedClass.id)
-      .map(s => s.id)
-    const { data } = await supabase
-      .from("results")
-      .select("*, exam_id, subjects(name, code), exams(name, status)")
-      .in("student_id", classStudentIds)
-      .eq("exam_id", examFilter)
-      .order("student_id", { ascending: true })
-    const results = data ?? []
-    setResultsCache(prev => ({ ...prev, [cacheKey]: results }))
-    setModalResults(results)
-    setModalResultsLoading(false)
-
-    // Refresh total count
-    const { count } = await supabase
-      .from("results")
-      .select("*", { count: "exact", head: true })
-      .eq("exam_id", examFilter)
-    setTotalCount(count ?? 0)
+    try {
+      const page = await listResults({ class_id: selectedClass.id, exam_id: examFilter, limit: 2000 })
+      const results = page?.items ?? []
+      setResultsCache(prev => ({ ...prev, [cacheKey]: results }))
+      setModalResults(results)
+      const countPage = await listResults({ exam_id: examFilter, limit: 1 })
+      setTotalCount(countPage?.total ?? 0)
+    } catch (err) {
+      console.error("Failed to refresh results:", err)
+    } finally {
+      setModalResultsLoading(false)
+    }
   }
 
   const getStudentsForClass = (classId) => students.filter(s => s.class_id === classId)
@@ -211,7 +168,7 @@ export default function ResultsManager() {
   const getResultsForStudent = (studentId) => {
     let r = modalResults.filter(r => r.student_id === studentId)
     if (search) r = r.filter(x =>
-      x.subjects?.name?.toLowerCase().includes(search.toLowerCase())
+      x.subject_name?.toLowerCase().includes(search.toLowerCase())
     )
     return r
   }
@@ -282,34 +239,31 @@ export default function ResultsManager() {
     setSaving(true)
 
     const marks = Number(form.marks)
-    const grade = calcGrade(marks)
-    const remarks = calcRemarks(grade)
-    const examName = exams.find(e => e.id === form.exam_id)?.name ?? ""
+    // grade is computed server-side; remarks kept for display continuity.
+    const remarks = calcRemarks(calcGrade(marks))
 
     const payload = {
       student_id: form.student_id,
       subject_id: form.subject_id,
       exam_id: form.exam_id,
-      exam: examName,
-      marks, total: 100, grade, remarks,
+      marks,
+      total: 100,
+      remarks,
     }
 
-    let error
-    if (modalMode === "edit") {
-      const res = await supabase.from("results").update(payload).eq("id", editingId)
-      error = res.error
-    } else {
-      const id = `res_${Date.now()}`
-      const res = await supabase.from("results").insert({ id, ...payload })
-      error = res.error
+    try {
+      // Upsert by (student, subject, exam) — handles both add and edit.
+      await upsertResult(payload)
+      setSaved(true)
+      setModalOpen(false)
+      refreshModalResults()
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save result:", err)
+      setErrors({ save: err?.message || "Could not save the result." })
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) { setModalOpen(false); return }
-    setSaved(true)
-    setModalOpen(false)
-    refreshModalResults()
-    setTimeout(() => setSaved(false), 3000)
   }
 
   const openConfirmDelete = (result) => {
@@ -321,11 +275,16 @@ export default function ResultsManager() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
-    await supabase.from("results").delete().eq("id", deleteTarget.id)
-    setDeleting(false)
-    setConfirmOpen(false)
-    setDeleteTarget(null)
-    refreshModalResults()
+    try {
+      await deleteResult(deleteTarget.id)
+    } catch (err) {
+      console.error("Failed to delete result:", err)
+    } finally {
+      setDeleting(false)
+      setConfirmOpen(false)
+      setDeleteTarget(null)
+      refreshModalResults()
+    }
   }
 
   const visibleClasses = classFilter
@@ -532,7 +491,7 @@ export default function ResultsManager() {
                                   <tbody className="divide-y divide-border">
                                     {studentResults.map(result => (
                                       <tr key={result.id} className="hover:bg-surface transition-colors duration-100 group">
-                                        <td className="px-3 sm:px-4 py-3 font-semibold text-text text-xs">{result.subjects?.name}</td>
+                                        <td className="px-3 sm:px-4 py-3 font-semibold text-text text-xs">{result.subject_name}</td>
                                         <td className="px-3 sm:px-4 py-3">
                                           <div className="flex items-center gap-2">
                                             <div className="w-12 sm:w-20 h-1.5 bg-surface-2 rounded-full overflow-hidden shrink-0">

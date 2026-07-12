@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMyExams, getMySchedule, getMyResults } from "@/lib/api/teachers"
 import { useAuth } from "@/context/AuthContext"
 import { TrendingUp } from "lucide-react"
 import {
@@ -31,112 +31,84 @@ export default function ExamResultsChart({ examIds = null }) {
 
   const fetchData = async () => {
     setLoading(true)
+    try {
+      const allExams = await getMyExams()
 
-    let examsToShow = []
-
-    if (examIds) {
-      const { data } = await supabase
-        .from("exams")
-        .select("*")
-        .in("id", examIds)
-        .order("end_date", { ascending: false })
-      examsToShow = data ?? []
-    } else {
-      const { data: gradingExams } = await supabase
-        .from("exams")
-        .select("*")
-        .eq("status", "grading")
-        .order("end_date", { ascending: false })
-        .limit(1)
-
-      const { data: endedExams } = await supabase
-        .from("exams")
-        .select("*")
-        .eq("status", "ended")
-        .order("end_date", { ascending: false })
-        .limit(gradingExams?.length > 0 ? 1 : 2)
-
-      examsToShow = [
-        ...(gradingExams ?? []),
-        ...(endedExams ?? []),
-      ]
-    }
-
-    if (examsToShow.length === 0) { setLoading(false); return }
-    setExamNames(examsToShow.map(e => e.name))
-
-    const { data: slots } = await supabase
-      .from("schedule")
-      .select("class_id, subject_id, subjects(name), classes(name, grade)")
-      .eq("teacher_id", user.id)
-
-    if (!slots || slots.length === 0) { setLoading(false); return }
-
-    const combos = slots.reduce((acc, s) => {
-      const key = `${s.class_id}_${s.subject_id}`
-      if (!acc.find(x => x.key === key)) {
-        acc.push({
-          key,
-          class_id: s.class_id,
-          subject_id: s.subject_id,
-          class_name: s.classes?.name,
-          subject_name: s.subjects?.name,
-          grade: s.classes?.grade,
-        })
+      let examsToShow = []
+      if (examIds) {
+        examsToShow = (allExams ?? [])
+          .filter(e => examIds.includes(e.id))
+          .sort((a, b) => new Date(b.end_date) - new Date(a.end_date))
+      } else {
+        const byEndDesc = (a, b) => new Date(b.end_date) - new Date(a.end_date)
+        const grading = (allExams ?? []).filter(e => e.status === "grading").sort(byEndDesc).slice(0, 1)
+        const ended = (allExams ?? []).filter(e => e.status === "ended").sort(byEndDesc).slice(0, grading.length > 0 ? 1 : 2)
+        examsToShow = [...grading, ...ended]
       }
-      return acc
-    }, [])
 
-    const classIds = [...new Set(combos.map(c => c.class_id))]
-    const subjectIds = [...new Set(combos.map(c => c.subject_id))]
+      if (examsToShow.length === 0) { setExams([]); setLoading(false); return }
+      setExamNames(examsToShow.map(e => e.name))
 
-    const { data: students } = await supabase
-      .from("students")
-      .select("id, class_id")
-      .in("class_id", classIds)
+      const slots = await getMySchedule()
+      if (!slots || slots.length === 0) { setExams(examsToShow); setChartData([]); setLoading(false); return }
 
-    const studentIds = students?.map(s => s.id) ?? []
-    if (studentIds.length === 0) { setLoading(false); return }
+      // Unique (class, subject) combos the teacher teaches.
+      const combos = slots.reduce((acc, s) => {
+        const key = `${s.class_id}_${s.subject_id}`
+        if (!acc.find(x => x.key === key)) {
+          acc.push({
+            key,
+            class_id: s.class_id,
+            subject_id: s.subject_id,
+            class_name: s.class_name,
+            subject_name: s.subject_name,
+          })
+        }
+        return acc
+      }, [])
 
-    const examNamesList = examsToShow.map(e => e.name)
-
-    const { data: results } = await supabase
-      .from("results")
-      .select("student_id, subject_id, marks, exam")
-      .in("exam", examNamesList)
-      .in("student_id", studentIds)
-      .in("subject_id", subjectIds)
-
-    if (!results) { setLoading(false); return }
-
-    const data = combos.map(combo => {
-      const classStudents = students?.filter(s => s.class_id === combo.class_id) ?? []
-      const shortName = combo.class_name
-        ?.replace("Class ", "")
-        ?.replace(" - Section", "")
-        ?.replace(" - ", " ") ?? combo.class_id
-
-      const entry = { name: shortName, subject: combo.subject_name }
-
-      examsToShow.forEach(exam => {
-        const comboResults = results.filter(r =>
-          r.exam === exam.name &&
-          r.subject_id === combo.subject_id &&
-          classStudents.some(s => s.id === r.student_id)
+      // Results per class (rows carry exam_id, subject_id, marks); tag each with its class.
+      const classIds = [...new Set(combos.map(c => c.class_id))]
+      const perClass = await Promise.all(
+        classIds.map(cid =>
+          getMyResults({ class_id: cid, limit: 200 })
+            .then(page => (page?.items ?? []).map(r => ({ ...r, class_id: cid })))
+            .catch(() => [])
         )
-        entry[exam.name] = comboResults.length
-          ? Math.round(comboResults.reduce((s, r) => s + r.marks, 0) / comboResults.length)
-          : null
-        entry[`${exam.name}_count`] = comboResults.length
-        entry[`${exam.name}_status`] = exam.status
-      })
+      )
+      const results = perClass.flat()
 
-      return entry
-    }).filter(d => examsToShow.some(e => d[e.name] !== null))
+      const data = combos.map(combo => {
+        const shortName = combo.class_name
+          ?.replace("Class ", "")
+          ?.replace(" - Section", "")
+          ?.replace(" - ", " ") ?? combo.class_id
 
-    setChartData(data)
-    setExams(examsToShow)
-    setLoading(false)
+        const entry = { name: shortName, subject: combo.subject_name }
+
+        examsToShow.forEach(exam => {
+          const comboResults = results.filter(r =>
+            r.exam_id === exam.id &&
+            r.subject_id === combo.subject_id &&
+            r.class_id === combo.class_id
+          )
+          entry[exam.name] = comboResults.length
+            ? Math.round(comboResults.reduce((s, r) => s + r.marks, 0) / comboResults.length)
+            : null
+          entry[`${exam.name}_count`] = comboResults.length
+          entry[`${exam.name}_status`] = exam.status
+        })
+
+        return entry
+      }).filter(d => examsToShow.some(e => d[e.name] !== null))
+
+      setChartData(data)
+      setExams(examsToShow)
+    } catch (err) {
+      console.error("Failed to load chart:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading) return (

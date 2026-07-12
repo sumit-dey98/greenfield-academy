@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getFaculty } from "@/lib/api/public"
 import { Users, Quote } from "lucide-react"
 
 export default function Leadership({
@@ -14,20 +14,18 @@ export default function Leadership({
   const [leadership, setLeadership] = useState([])
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("teachers")
-        .select("id, name, role, avatar, join_date, bio, message")
-        .in("role", roles)
-
-      if (data) {
-        const sorted = [...data].sort(
-          (a, b) => roles.indexOf(a.role) - roles.indexOf(b.role)
-        )
+    const load = async () => {
+      try {
+        const all = (await getFaculty()) ?? []
+        const sorted = all
+          .filter(t => roles.includes(t.role))
+          .sort((a, b) => roles.indexOf(a.role) - roles.indexOf(b.role))
         setLeadership(sorted)
+      } catch (err) {
+        console.error("Failed to load leadership:", err)
       }
     }
-    fetch()
+    load()
     onReady?.()
   }, [roles.join(",")])
 

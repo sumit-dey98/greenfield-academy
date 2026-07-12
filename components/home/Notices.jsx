@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Bell, ArrowRight, Calendar } from "lucide-react"
-import { supabase } from "@/lib/supabase"
+import { getNotices } from "@/lib/api/public"
 
 const categoryBadge = {
   Event: "badge-info",
@@ -18,15 +18,15 @@ export default function Notices({onReady}) {
 
   useEffect(() => {
     const fetchNotices = async () => {
-      const { data, error } = await supabase
-        .from("notices")
-        .select("*")
-        .order("date", { ascending: false })
-        .limit(3)
-
-      if (!error) setNotices(data)
-      setLoading(false)
-      onReady?.()
+      try {
+        const page = await getNotices({ limit: 3 })
+        setNotices(page?.items ?? [])
+      } catch (err) {
+        console.error("Failed to load notices:", err)
+      } finally {
+        setLoading(false)
+        onReady?.()
+      }
     }
     fetchNotices()
     onReady?.()

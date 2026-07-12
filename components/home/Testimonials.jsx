@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from "react"
-import { supabase } from "@/lib/supabase"
+import { getTestimonials } from "@/lib/api/public"
 import useEmblaCarousel from "embla-carousel-react"
 import Autoplay from "embla-carousel-autoplay"
 import { ChevronLeft, ChevronRight, Quote } from "lucide-react"
@@ -17,16 +17,17 @@ export default function Testimonials({onReady}) {
   )
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("testimonials")
-        .select("*")
-        .eq("active", true)
-        .order("id", { ascending: true })
-      if (data) setTestimonials(data)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const data = await getTestimonials()
+        setTestimonials(data ?? [])
+      } catch (err) {
+        console.error("Failed to load testimonials:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
     onReady?.()
   }, [])
 
@@ -105,7 +106,7 @@ export default function Testimonials({onReady}) {
                       )}
                       <div>
                         <p className="font-semibold text-text text-sm">{t.name}</p>
-                        <p className="text-xs text-faint">Parent · {t.child_class}</p>
+                        <p className="text-xs text-faint">Parent · {t.class_name}</p>
                       </div>
                     </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMySchedule } from "@/lib/api/teachers"
 import { useAuth } from "@/context/AuthContext"
 import { CalendarDays, Clock } from "lucide-react"
 
@@ -10,23 +10,25 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"]
 const DAY_COLORS = ["#059669", "#0891b2", "#9333ea", "#f59e0b", "#ef4444"]
 
 export default function TeacherSchedule() {
-  const { user, setUser } = useAuth()
+  const { user } = useAuth()
   const [schedule, setSchedule] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeDay, setActiveDay] = useState(null)
 
   useEffect(() => {
     if (!user) return
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("schedule")
-        .select("*, subjects(name, code), classes(name)")
-        .eq("teacher_id", user.id)
-        .order("start_time", { ascending: true })
-      if (data) setSchedule(data)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const data = await getMySchedule()
+        // sort by start_time (endpoint doesn't guarantee ordering)
+        setSchedule((data ?? []).slice().sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? "")))
+      } catch (err) {
+        console.error("Failed to load schedule:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
   }, [user])
 
   useEffect(() => {
@@ -179,8 +181,8 @@ export default function TeacherSchedule() {
 
                   {/* Subject + class info */}
                   <div className="flex-1 min-w-0 flex md:flex-col items-center md:items-start gap-2 flex-wrap">
-                    <p className="font-semibold text-text text-sm">{cls.subjects?.name}</p>
-                    <p className="text-xs text-muted md:mt-0.5">{cls.classes?.name}</p>
+                    <p className="font-semibold text-text text-sm">{cls.subject_name}</p>
+                    <p className="text-xs text-muted md:mt-0.5">{cls.class_name}</p>
                   </div>
                 </div>
 

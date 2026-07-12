@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getAdmissionStatus } from "@/lib/api/public"
+import toast from "react-hot-toast"
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
 import Input from "@/components/ui/Input"
@@ -60,12 +61,13 @@ export default function AdmissionPage() {
 
   useEffect(() => {
     const fetchStatus = async () => {
-      const { data } = await supabase
-        .from("admission_open")
-        .select("value")
-        .eq("id", "admission_status")
-        .single()
-      setAdmissionOpen(data?.value ?? false)
+      try {
+        const data = await getAdmissionStatus()
+        setAdmissionOpen(data?.value ?? false)
+      } catch (err) {
+        console.error("Failed to load admission status:", err)
+        setAdmissionOpen(false)
+      }
     }
     fetchStatus()
   }, [])
@@ -103,6 +105,7 @@ export default function AdmissionPage() {
     const validationErrors = validate()
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
+      toast.error("Please fix the errors before submitting.")
       const firstKey = Object.keys(validationErrors)[0]
       document.getElementById(firstKey)?.scrollIntoView({ behavior: "smooth", block: "center" })
       return
@@ -120,9 +123,12 @@ export default function AdmissionPage() {
       const data = await res.json()
       setResult(data)
       if (data.success) {
+        toast.success("Application submitted successfully!")
         setForm({})
         setAgreed(false)
         window.scrollTo({ top: 0, behavior: "smooth" })
+      } else {
+        toast.error(data.error || "Submission failed.")
       }
     } catch {
       setResult({ success: false, error: "Network error. Please check your connection." })
@@ -261,6 +267,7 @@ export default function AdmissionPage() {
                       error={errors.dob}
                       maxDate={new Date()}
                       disabled={isDisabled}
+                      menuPlacement="bottom"
                     />
                   </div>
 
@@ -275,6 +282,7 @@ export default function AdmissionPage() {
                       placeholder="Select gender"
                       disabled={isDisabled}
                       searchable={false}
+                      menuPlacement="bottom"
                     />
                   </div>
 
@@ -288,6 +296,9 @@ export default function AdmissionPage() {
                       error={errors.applyingClass}
                       placeholder="Select class"
                       disabled={isDisabled}
+                      searchable={false}
+                      menuPlacement="bottom"
+
                     />
                   </div>
 
@@ -300,6 +311,8 @@ export default function AdmissionPage() {
                       placeholder="Select blood group"
                       disabled={isDisabled}
                       searchable={false}
+                      menuPlacement="bottom"
+
                     />
                   </div>
 
@@ -345,6 +358,8 @@ export default function AdmissionPage() {
                       placeholder="Select relationship"
                       disabled={isDisabled}
                       searchable={false}
+                      menuPlacement="bottom"
+
                     />
                   </div>
 

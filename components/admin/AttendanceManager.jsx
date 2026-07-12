@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { listAttendance, markAttendance } from "@/lib/api/attendance"
+import { listClasses } from "@/lib/api/classes"
+import { listStudents } from "@/lib/api/adminPeople"
 import { useAuth } from "@/context/AuthContext"
 import {
   ChevronDown, Save,
@@ -70,19 +72,20 @@ export default function AttendanceManager() {
 
   const fetchAll = async () => {
     const { start, end } = getMonthRange(monthFilter)
-    const [classesRes, studentsRes, attendanceRes] = await Promise.all([
-      supabase.from("classes").select("*").order("grade", { ascending: true }),
-      supabase.from("students").select("*").order("roll", { ascending: true }),
-      supabase.from("attendance").select("*")
-        .gte("date", start)
-        .lte("date", end)
-        .order("date", { ascending: false })
-        .range(0, 9999),
-    ])
-    if (classesRes.data) setClasses(classesRes.data)
-    if (studentsRes.data) setStudents(studentsRes.data)
-    if (attendanceRes.data) setAttendance(attendanceRes.data)
-    setLoading(false)
+    try {
+      const [classesData, studentsPage, attendancePage] = await Promise.all([
+        listClasses(),
+        listStudents({ limit: 200 }),
+        listAttendance({ from_date: start, to_date: end, limit: 2000 }),
+      ])
+      setClasses(classesData ?? [])
+      setStudents(studentsPage?.items ?? [])
+      setAttendance(attendancePage?.items ?? [])
+    } catch (err) {
+      console.error("Failed to load attendance:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchAll() }, [monthFilter])
@@ -146,22 +149,21 @@ export default function AttendanceManager() {
     const dbDate = formatDateForDB(markDate)
     const classStudents = students.filter(s => s.class_id === markClass)
 
-    const rows = classStudents.map(s => ({
-      id: existingMap[s.id] ?? `att_${s.id}_${dbDate}`,
+    const records = classStudents.map(s => ({
       student_id: s.id,
-      date: dbDate,
       status: markMap[s.id] ?? "absent",
     }))
 
-    const { error } = await supabase
-      .from("attendance")
-      .upsert(rows, { onConflict: "student_id,date" })
-
-    setSaving(false)
-    if (error) return
-    setSaved(true)
-    fetchAll()
-    setTimeout(() => setSaved(false), 3000)
+    try {
+      await markAttendance({ date: dbDate, records })
+      setSaved(true)
+      fetchAll()
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save attendance:", err)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const getClassStats = (classId) => {

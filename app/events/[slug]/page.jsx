@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useParams } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { getEvent, getEvents } from "@/lib/api/public"
 import Link from "next/link"
 import { Calendar, Tag, ArrowLeft, ArrowRight } from "lucide-react"
 import Navbar from "@/components/Navbar"
@@ -21,37 +21,27 @@ export default function EventPostPage() {
   const contentRef = useRef(null)
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data: eventData } = await supabase
-        .from("events")
-        .select("*")
-        .eq("slug", slug)
-        .eq("published", true)
-        .single()
+    const load = async () => {
+      try {
+        // Event + its images come back together from /events/{slug}.
+        const eventData = await getEvent(slug)
+        setEvent(eventData)
+        setImages((eventData.images ?? []).map(img => ({ url: img.url })))
 
-      if (!eventData) { setLoading(false); return }
-      setEvent(eventData)
-
-      const { data: imageData } = await supabase
-        .from("event_images")
-        .select("*")
-        .eq("event_id", eventData.id)
-        .order("sort_order", { ascending: true })
-
-      if (imageData) setImages(imageData.map(img => ({ url: img.url })))
-
-      const { data: relatedData } = await supabase
-        .from("events")
-        .select("id, title, slug, cover_image, category, date, excerpt")
-        .eq("published", true)
-        .eq("category", eventData.category)
-        .neq("id", eventData.id)
-        .limit(3)
-
-      if (relatedData) setRelated(relatedData)
-      setLoading(false)
+        // Related: same category, excluding this event.
+        if (eventData.category) {
+          const relatedPage = await getEvents({ category: eventData.category, limit: 4 })
+          const rel = (relatedPage?.items ?? []).filter(e => e.id !== eventData.id).slice(0, 3)
+          setRelated(rel)
+        }
+      } catch (err) {
+        // 404 = no published event at this slug
+        if (err?.status !== 404) console.error("Failed to load event:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
   }, [slug])
 
   // Extract H2 headings from content for ToC

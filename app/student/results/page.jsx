@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMyResults } from "@/lib/api/students"
 import { useAuth } from "@/context/AuthContext"
 import { TrendingUp, Award, BookOpen } from "lucide-react"
 import {
@@ -26,7 +26,6 @@ const COLORS = {
 export default function StudentResults() {
   const { user } = useAuth()
   const [results, setResults] = useState([])
-  const [examRecords, setExamRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeExam, setActiveExam] = useState("")
   const [chartWidth, setChartWidth] = useState(0);
@@ -34,23 +33,17 @@ export default function StudentResults() {
 
   useEffect(() => {
     if (!user) return
-    const fetch = async () => {
-      const [resultsRes, examsRes] = await Promise.all([
-        supabase
-          .from("results")
-          .select("*, subjects(name, code)")
-          .eq("student_id", user.id)
-          .order("exam", { ascending: true }),
-        supabase
-          .from("exams")
-          .select("name, start_date")
-          .order("start_date", { ascending: false }),
-      ])
-      if (resultsRes.data) setResults(resultsRes.data)
-      if (examsRes.data) setExamRecords(examsRes.data)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const data = await getMyResults()
+        setResults(data ?? [])
+      } catch (err) {
+        console.error("Failed to load results:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
   }, [user])
 
   useEffect(() => {
@@ -60,12 +53,9 @@ export default function StudentResults() {
     }
   }, [results])
 
-  const exams = [...new Set(results.map(r => r.exam))]
-    .sort((a, b) => {
-      const aDate = examRecords.find(e => e.name === a)?.start_date ?? ""
-      const bDate = examRecords.find(e => e.name === b)?.start_date ?? ""
-      return new Date(bDate) - new Date(aDate)
-    })
+  // Exam tabs, most-recent first (best-effort by name, since the student endpoint
+  // doesn't return exam dates).
+  const exams = [...new Set(results.map(r => r.exam))].sort((a, b) => String(b).localeCompare(String(a)))
 
   const filtered = activeExam ? results.filter(r => r.exam === activeExam) : []
 
@@ -75,7 +65,7 @@ export default function StudentResults() {
   const lowest = filtered.length ? Math.min(...filtered.map(r => r.marks)) : 0
 
   const barData = filtered.map(r => ({
-    name: r.subjects?.name?.split(" ")[0] ?? "—",
+    name: r.subject_name?.split(" ")[0] ?? "—",
     marks: r.marks,
     total: r.total,
   }))
@@ -246,8 +236,8 @@ export default function StudentResults() {
             ) : (
               filtered.map(result => (
                 <tr key={result.id}>
-                  <td className="font-medium text-text">{result.subjects?.name}</td>
-                  <td className="text-muted">{result.subjects?.code}</td>
+                  <td className="font-medium text-text">{result.subject_name}</td>
+                  <td className="text-muted">{result.subject_code}</td>
                   <td className="text-muted">{result.exam}</td>
                   <td>
                     <div className="flex items-center gap-2">

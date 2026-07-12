@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMyClass, getMySchedule, getMyAttendance } from "@/lib/api/teachers"
+import { getNotices } from "@/lib/api/public"
 import { useAuth } from "@/context/AuthContext"
 import Link from "next/link"
 import {
@@ -41,35 +42,26 @@ export default function TeacherDashboard() {
     if (!user) return
     const fetchAll = async () => {
       const today = new Date().toISOString().split("T")[0]
-
-      const [studentsRes, scheduleRes, noticesRes, attendanceRes] = await Promise.all([
-        supabase.from("students").select("*").eq("class_id", user.class_id),
-        supabase.from("schedule").select("*, subjects(name)").eq("teacher_id", user.id),
-        supabase.from("notices").select("*").order("date", { ascending: false }).limit(4),
-        supabase.from("attendance").select("*").in(
-          "student_id",
-          []
-        ),
-      ])
-
-      if (studentsRes.data) {
-        setStudents(studentsRes.data)
-
-        // fetch today's attendance for these students
-        const ids = studentsRes.data.map(s => s.id)
-        if (ids.length > 0) {
-          const { data: attData } = await supabase
-            .from("attendance")
-            .select("*")
-            .in("student_id", ids)
-            .eq("date", today)
-          setAttendance(attData ?? [])
-        }
+      try {
+        const [roster, scheduleData, noticesPage, attendancePage] = await Promise.all([
+          getMyClass().catch(err => { if (err?.status !== 404) throw err; return { students: [] } }),
+          getMySchedule(),
+          getNotices({ limit: 50 }),
+          getMyAttendance({ from_date: today, to_date: today, limit: 200 }).catch(() => ({ items: [] })),
+        ])
+        setStudents(roster?.students ?? [])
+        setSchedule(scheduleData ?? [])
+        const noticeItems = (noticesPage?.items ?? [])
+          .slice()
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 4)
+        setNotices(noticeItems)
+        setAttendance(attendancePage?.items ?? [])
+      } catch (err) {
+        console.error("Failed to load dashboard:", err)
+      } finally {
+        setLoading(false)
       }
-
-      if (scheduleRes.data) setSchedule(scheduleRes.data)
-      if (noticesRes.data) setNotices(noticesRes.data)
-      setLoading(false)
     }
     fetchAll()
   }, [user])
@@ -210,7 +202,7 @@ export default function TeacherDashboard() {
                   </div>
                   <div className="w-px h-8 bg-border shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text truncate">{cls.subjects?.name}</p>
+                    <p className="text-sm font-medium text-text truncate">{cls.subject_name}</p>
                     <p className="text-xs text-muted">Room {cls.room}</p>
                   </div>
                   <span className="text-xs text-faint shrink-0">#{i + 1}</span>

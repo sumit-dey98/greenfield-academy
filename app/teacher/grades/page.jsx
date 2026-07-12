@@ -1,21 +1,19 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMySchedule, getMyExams, getMyResults, getTaughtClassStudents, saveResults } from "@/lib/api/teachers"
 import { useAuth } from "@/context/AuthContext"
 import { Save, CheckCircle, ChevronDown, BookOpen, AlertTriangle, Lock } from "lucide-react"
 import ExamResultsChart from "@/components/teacher/ExamResultsChart"
 import Select from "@/components/ui/Select"
-import { calcGrade, calcRemarks } from "@/lib/services/grading"
+import { calcGrade } from "@/lib/services/grading"
 
 export default function TeacherGradesPage() {
   const { user } = useAuth()
 
   const [exams, setExams] = useState([])
   const [schedule, setSchedule] = useState([])
-  const [students, setStudents] = useState([])
-  const [classes, setClasses] = useState([])
-  const [subjects, setSubjects] = useState([])
+  const [rosters, setRosters] = useState({}) // { [classId]: StudentOut[] } — loaded on expand
   const [loading, setLoading] = useState(true)
 
   const [selectedExam, setSelectedExam] = useState("")
@@ -32,19 +30,18 @@ export default function TeacherGradesPage() {
   useEffect(() => {
     if (!user) return
     const fetchAll = async () => {
-      const [examsRes, scheduleRes, studentsRes, classesRes, subjectsRes] = await Promise.all([
-        supabase.from("exams").select("*").order("start_date", { ascending: true }),
-        supabase.from("schedule").select("*, subjects(id,name)").eq("teacher_id", user.id),
-        supabase.from("students").select("*").order("roll", { ascending: true }),
-        supabase.from("classes").select("*"),
-        supabase.from("subjects").select("*"),
-      ])
-      if (examsRes.data) setExams(examsRes.data)
-      if (scheduleRes.data) setSchedule(scheduleRes.data)
-      if (studentsRes.data) setStudents(studentsRes.data)
-      if (classesRes.data) setClasses(classesRes.data)
-      if (subjectsRes.data) setSubjects(subjectsRes.data)
-      setLoading(false)
+      try {
+        const [examsData, scheduleData] = await Promise.all([
+          getMyExams(),
+          getMySchedule(),
+        ])
+        setExams(examsData ?? [])
+        setSchedule(scheduleData ?? [])
+      } catch (err) {
+        console.error("Failed to load grade entry:", err)
+      } finally {
+        setLoading(false)
+      }
     }
     fetchAll()
   }, [user])
@@ -60,15 +57,16 @@ export default function TeacherGradesPage() {
     if (auto) setSelectedExam(auto.id)
   }, [exams])
 
-  // Derive unique class+subject combos this teacher teaches
+  // Derive unique class+subject combos this teacher teaches (schedule already carries the names)
   const teachingSlots = schedule.reduce((acc, slot) => {
     const key = `${slot.class_id}_${slot.subject_id}`
     if (!acc.find(s => s.key === key)) {
       acc.push({
         key,
         class_id: slot.class_id,
+        class_name: slot.class_name,
         subject_id: slot.subject_id,
-        subject_name: slot.subjects?.name,
+        subject_name: slot.subject_name,
       })
     }
     return acc
@@ -81,8 +79,18 @@ export default function TeacherGradesPage() {
     return acc
   }, {})
 
-  const getClassName = (id) => classes.find(c => c.id === id)?.name ?? id
-  const getStudents = (classId) => students.filter(s => s.class_id === classId)
+  const classNameMap = schedule.reduce((acc, s) => {
+    if (s.class_id) acc[s.class_id] = s.class_name ?? s.class_id
+    return acc
+  }, {})
+
+  const getClassName = (id) => classNameMap[id] ?? id
+  const getStudents = (classId) => rosters[classId] ?? []
+  // The teacher endpoints don't return a numeric grade; derive it from the class name for coloring.
+  const gradeFromName = (name) => {
+    const m = String(name ?? "").match(/\d+/)
+    return m ? Number(m[0]) : null
+  }
   const initials = (name) => name?.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
 
   const markKey = (studentId, subjectId) => `${studentId}_${subjectId}`
@@ -92,77 +100,68 @@ export default function TeacherGradesPage() {
     setSaved(false)
   }
 
-  const loadExistingMarks = async (classId) => {
+  // On expand: load the class roster (cached) and any existing marks for the selected exam.
+  const loadClass = async (classId) => {
     if (!selectedExam) return
-    const classStudents = getStudents(classId)
-    const slots = classSlotsMap[classId] ?? []
-    const subjectIds = slots.map(s => s.subject_id)
-    const studentIds = classStudents.map(s => s.id)
-    const examName = exams.find(e => e.id === selectedExam)?.name
-
-    if (!examName || studentIds.length === 0 || subjectIds.length === 0) return
-
-    const { data: existing } = await supabase
-      .from("results")
-      .select("student_id, subject_id, marks")
-      .in("student_id", studentIds)
-      .in("subject_id", subjectIds)
-      .eq("exam", examName)
-
-    if (existing) {
+    try {
+      const [studentsData, resultsPage] = await Promise.all([
+        rosters[classId] ? Promise.resolve(rosters[classId]) : getTaughtClassStudents(classId),
+        getMyResults({ class_id: classId, exam_id: selectedExam, limit: 200 }),
+      ])
+      setRosters(prev => ({ ...prev, [classId]: studentsData ?? [] }))
       const loaded = {}
-      existing.forEach(r => {
-        loaded[markKey(r.student_id, r.subject_id)] = String(r.marks)
+      ;(resultsPage?.items ?? []).forEach(r => {
+        if (r.marks !== null && r.marks !== undefined) {
+          loaded[markKey(r.student_id, r.subject_id)] = String(r.marks)
+        }
       })
       setMarksMap(prev => ({ ...prev, ...loaded }))
+    } catch (err) {
+      console.error("Failed to load class:", err)
     }
   }
 
   const handleExpandClass = async (classId) => {
     if (expandedClass === classId) { setExpandedClass(null); return }
     setExpandedClass(classId)
-    await loadExistingMarks(classId)
+    await loadClass(classId)
   }
 
   const handleSaveClass = async (classId) => {
     if (!selectedExam) return
     setSavingClass(classId)
 
-    const examName = exams.find(e => e.id === selectedExam)?.name
     const classStudents = getStudents(classId)
     const slots = classSlotsMap[classId] ?? []
 
-    const rows = []
-    classStudents.forEach(student => {
-      slots.forEach(slot => {
-        const raw = marksMap[markKey(student.id, slot.subject_id)]
-        if (raw === undefined || raw === "") return
-        const marks = Number(raw)
-        if (isNaN(marks) || marks < 0 || marks > 100) return
-        const grade = calcGrade(marks)
-        const remarks = calcRemarks(grade)
-        rows.push({
-          id: `res_${student.id}_${slot.subject_id}_${selectedExam}`,
-          student_id: student.id,
-          subject_id: slot.subject_id,
-          exam: examName,
-          marks,
-          total: 100,
-          grade,
-          remarks,
+    try {
+      // The bulk endpoint is per (class, subject, exam); post once per subject.
+      // grade is computed server-side from marks/total.
+      for (const slot of slots) {
+        const records = []
+        classStudents.forEach(student => {
+          const raw = marksMap[markKey(student.id, slot.subject_id)]
+          if (raw === undefined || raw === "") return
+          const marks = Number(raw)
+          if (isNaN(marks) || marks < 0 || marks > 100) return
+          records.push({ student_id: student.id, marks, total: 100 })
         })
-      })
-    })
-
-    if (rows.length > 0) {
-      await supabase
-        .from("results")
-        .upsert(rows, { onConflict: "student_id,subject_id,exam" })
+        if (records.length > 0) {
+          await saveResults({
+            class_id: classId,
+            subject_id: slot.subject_id,
+            exam_id: selectedExam,
+            records,
+          })
+        }
+      }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save marks:", err)
+    } finally {
+      setSavingClass(null)
     }
-
-    setSavingClass(null)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
   }
 
   const examOptions = exams.map(e => ({ label: `${e.name} (${e.status})`, value: e.id }))
@@ -243,8 +242,8 @@ export default function TeacherGradesPage() {
         const className = getClassName(classId)
 
         const gradeColors = { 9: "#059669", 10: "#0891b2", 11: "#9333ea", 12: "#f59e0b" }
-        const cls = classes.find(c => c.id === classId)
-        const color = gradeColors[cls?.grade] ?? "#059669"
+        const grade = gradeFromName(className)
+        const color = gradeColors[grade] ?? "#059669"
 
         return (
           <div key={classId} className="table-wrapper p-0 overflow-hidden">
@@ -258,7 +257,7 @@ export default function TeacherGradesPage() {
                 className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold shrink-0"
                 style={{ background: color }}
               >
-                {cls?.grade}
+                {grade ?? "—"}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-text">{className}</p>

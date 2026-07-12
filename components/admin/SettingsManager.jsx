@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getAdmissionStatus, setAdmissionStatus } from "@/lib/api/admission"
 import { useAuth } from "@/context/AuthContext"
 import { Settings, GraduationCap, CheckCircle, Lock } from "lucide-react"
 
@@ -13,31 +13,33 @@ export default function SettingsManager() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("admission_open")
-        .select("value")
-        .eq("id", "admission_status")
-        .single()
-      setAdmissionOpen(data?.value ?? false)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const data = await getAdmissionStatus()
+        setAdmissionOpen(data?.value ?? false)
+      } catch (err) {
+        console.error("Failed to load admission status:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
   }, [])
 
   const handleToggle = async (val) => {
     if (!attemptWrite("cms")) return
     setSaving(true)
     setSaved(false)
-    const { error } = await supabase
-      .from("admission_open")
-      .update({ value: val })
-      .eq("id", "admission_status")
-    setSaving(false)
-    if (error) return
-    setAdmissionOpen(val)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    try {
+      const data = await setAdmissionStatus(val)
+      setAdmissionOpen(data?.value ?? val)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save admission status:", err)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

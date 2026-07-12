@@ -1,7 +1,12 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { listStudents, listTeachers } from "@/lib/api/adminPeople"
+import { listClasses } from "@/lib/api/classes"
+import { listEvents } from "@/lib/api/events"
+import { listExams } from "@/lib/api/exams"
+import { listResults } from "@/lib/api/results"
+import { listNotices } from "@/lib/api/notices"
 import Link from "next/link"
 import {
   Users, User, BookOpen, Bell, Calendar,
@@ -29,41 +34,41 @@ export default function DashboardScreen({ basePath = "/admin" }) {
 
   useEffect(() => {
     const fetchAll = async () => {
-      const [
-        studentsRes, teachersRes, classesRes,
-        noticesRes, eventsRes, examRes,
-      ] = await Promise.all([
-        supabase.from("students").select("id, class_id"),
-        supabase.from("teachers")
-          .select("id")
-          .not("role", "in", '("Chairman")'),
-        supabase.from("classes").select("id, name, grade"),
-        supabase.from("notices").select("*").order("date", { ascending: false }).limit(5),
-        supabase.from("events").select("id").eq("published", true),
-        supabase.from("exams")
-          .select("name")
-          .eq("status", "ended")
-          .order("end_date", { ascending: false })
-          .limit(1)
-          .single(),
-      ])
+      try {
+        const [studentsPage, teachersPage, classesData, noticesPage, eventsPage, examsData] = await Promise.all([
+          listStudents({ limit: 1 }),
+          listTeachers({ limit: 1 }),
+          listClasses(),
+          listNotices({ limit: 5 }),
+          listEvents({ published: true, limit: 1 }),
+          listExams(),
+        ])
 
-      const latestExam = examRes.data?.name
-      const { data: resultsData } = latestExam
-        ? await supabase.from("results").select("marks").eq("exam", latestExam)
-        : { data: [] }
+        // Latest ended exam -> its results for the distribution chart.
+        const ended = (examsData ?? [])
+          .filter(e => e.status === "ended")
+          .sort((a, b) => (b.end_date ?? "").localeCompare(a.end_date ?? ""))[0]
+        let resultsData = []
+        if (ended) {
+          const rp = await listResults({ exam_id: ended.id, limit: 2000 })
+          resultsData = rp?.items ?? []
+        }
 
-      setStats({
-        students: studentsRes.data?.length ?? 0,
-        teachers: teachersRes.data?.length ?? 0,
-        classes: classesRes.data?.length ?? 0,
-        notices: noticesRes.data?.length ?? 0,
-        events: eventsRes.data?.length ?? 0,
-      })
-      setNotices(noticesRes.data ?? [])
-      setClasses(classesRes.data ?? [])
-      setResults(resultsData ?? [])
-      setLoading(false)
+        setStats({
+          students: studentsPage?.total ?? 0,
+          teachers: teachersPage?.total ?? 0,
+          classes: (classesData ?? []).length,
+          notices: noticesPage?.total ?? 0,
+          events: eventsPage?.total ?? 0,
+        })
+        setNotices(noticesPage?.items ?? [])
+        setClasses(classesData ?? [])
+        setResults(resultsData)
+      } catch (err) {
+        console.error("Failed to load dashboard:", err)
+      } finally {
+        setLoading(false)
+      }
     }
     fetchAll()
   }, [])

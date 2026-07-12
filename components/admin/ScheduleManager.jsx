@@ -1,7 +1,13 @@
 'use client'
 
 import { useEffect, useState, useRef } from "react"
-import { supabase } from "@/lib/supabase"
+import {
+  listSchedule, createSchedule, updateSchedule, deleteSchedule,
+  listPeriods, createPeriod, updatePeriod, deletePeriod,
+} from "@/lib/api/schedule"
+import { listClasses } from "@/lib/api/classes"
+import { listSubjects } from "@/lib/api/subjects"
+import { listTeachers } from "@/lib/api/adminPeople"
 import { useAuth } from "@/context/AuthContext"
 import {
   Clock, Plus, Trash2, Save,
@@ -49,21 +55,31 @@ export default function ScheduleManager() {
   const popoverRef = useRef(null)
 
   const fetchAll = async () => {
-    const [classesRes, subjectsRes, teachersRes, periodsRes, scheduleRes] = await Promise.all([
-      supabase.from("classes").select("*").order("grade", { ascending: true }),
-      supabase.from("subjects").select("*").order("name", { ascending: true }),
-      supabase.from("teachers").select("*"),
-      supabase.from("periods").select("*").order("sort_order", { ascending: true }),
-      supabase.from("schedule").select("*, subjects(name), teachers(name)"),
-    ])
-    if (classesRes.data) setClasses(classesRes.data)
-    if (subjectsRes.data) setSubjects(subjectsRes.data)
-    if (teachersRes.data) setTeachers(teachersRes.data)
-    if (periodsRes.data) setPeriods(periodsRes.data)
-    if (scheduleRes.data) setSchedule(scheduleRes.data)
-    if (classesRes.data?.[0]) setSelectedClass(classesRes.data[0].id)
-    setLoading(false)
+    try {
+      const [classesData, subjectsData, teachersPage, periodsData, schedulePage] = await Promise.all([
+        listClasses(),
+        listSubjects(),
+        listTeachers({ limit: 200 }),
+        listPeriods(),
+        listSchedule({ limit: 200 }),
+      ])
+      const cls = classesData ?? []
+      setClasses(cls)
+      setSubjects(subjectsData ?? [])
+      setTeachers(teachersPage?.items ?? [])
+      setPeriods(periodsData ?? [])
+      setSchedule(schedulePage?.items ?? [])
+      setSelectedClass(prev => prev || (cls[0]?.id ?? ""))
+    } catch (err) {
+      console.error("Failed to load schedule:", err)
+    } finally {
+      setLoading(false)
+    }
   }
+
+  // Admin /schedule returns ids only (no joined names) — resolve from the loaded lists.
+  const getSubjectName = (id) => subjects.find(s => s.id === id)?.name
+  const getTeacherName = (id) => teachers.find(t => t.id === id)?.name
 
   useEffect(() => { fetchAll() }, [])
 
@@ -152,21 +168,22 @@ export default function ScheduleManager() {
       room: cellForm.room.trim(),
     }
 
-    let error
-    if (existing) {
-      const res = await supabase.from("schedule").update(payload).eq("id", existing.id)
-      error = res.error
-    } else {
-      const id = `sch_${Date.now()}`
-      const res = await supabase.from("schedule").insert({ id, ...payload })
-      error = res.error
+    try {
+      if (existing) {
+        await updateSchedule(existing.id, payload)
+      } else {
+        await createSchedule(payload)
+      }
+      setActiveCell(null)
+      setConflict(null)
+      fetchAll()
+    } catch (err) {
+      // Surface backend schedule-conflict messages (teacher/class/room) in the popover.
+      console.error("Failed to save slot:", err)
+      setConflict(err?.message || "Could not save this slot.")
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) return
-    setActiveCell(null)
-    setConflict(null)
-    fetchAll()
   }
 
   const handleDeleteCell = async (periodId, day) => {
@@ -174,10 +191,15 @@ export default function ScheduleManager() {
     const existing = getSlot(periodId, day)
     if (!existing) return
     setDeleting(`${periodId}-${day}`)
-    await supabase.from("schedule").delete().eq("id", existing.id)
-    setDeleting(null)
-    setActiveCell(null)
-    fetchAll()
+    try {
+      await deleteSchedule(existing.id)
+    } catch (err) {
+      console.error("Failed to delete slot:", err)
+    } finally {
+      setDeleting(null)
+      setActiveCell(null)
+      fetchAll()
+    }
   }
 
   const openEditPeriod = (period) => {
@@ -193,22 +215,35 @@ export default function ScheduleManager() {
 
   const handleSavePeriod = async (periodId) => {
     setSavingPeriod(true)
-    await supabase.from("periods").update({
-      start_time: periodForm.start_time,
-      end_time: periodForm.end_time,
-      label: periodForm.label || null,
-      is_break: periodForm.is_break,
-    }).eq("id", periodId)
-    setSavingPeriod(false)
-    setEditingPeriod(null)
-    fetchAll()
+    try {
+      await updatePeriod(periodId, {
+        start_time: periodForm.start_time,
+        end_time: periodForm.end_time,
+        label: periodForm.label || null,
+        is_break: periodForm.is_break,
+      })
+      setEditingPeriod(null)
+      fetchAll()
+    } catch (err) {
+      console.error("Failed to save period:", err)
+    } finally {
+      setSavingPeriod(false)
+    }
   }
 
   const handleDeletePeriod = async (periodId) => {
     if (!attemptWrite("academic")) return
-    await supabase.from("schedule").delete().eq("period_id", periodId)
-    await supabase.from("periods").delete().eq("id", periodId)
-    fetchAll()
+    try {
+      // Deleting a period is blocked while schedule entries reference it — remove those first.
+      const referencing = schedule.filter(s => s.period_id === periodId)
+      for (const slot of referencing) {
+        await deleteSchedule(slot.id)
+      }
+      await deletePeriod(periodId)
+      fetchAll()
+    } catch (err) {
+      console.error("Failed to delete period:", err)
+    }
   }
 
   const handleAddPeriod = async () => {
@@ -216,24 +251,27 @@ export default function ScheduleManager() {
     if (!newPeriod.start_time || !newPeriod.end_time) return
     setSavingPeriod(true)
     const maxOrder = Math.max(...periods.map(p => p.sort_order), 0)
-    const id = `per_${Date.now()}`
-    await supabase.from("periods").insert({
-      id,
-      sort_order: maxOrder + 1,
-      start_time: newPeriod.start_time,
-      end_time: newPeriod.end_time,
-      is_break: newPeriod.is_break,
-      label: newPeriod.label || null,
-    })
-    setSavingPeriod(false)
-    setShowAddPeriod(false)
-    setNewPeriod({ start_time: "", end_time: "", is_break: false, label: "" })
-    fetchAll()
+    try {
+      await createPeriod({
+        sort_order: maxOrder + 1,
+        start_time: newPeriod.start_time,
+        end_time: newPeriod.end_time,
+        is_break: newPeriod.is_break,
+        label: newPeriod.label || null,
+      })
+      setShowAddPeriod(false)
+      setNewPeriod({ start_time: "", end_time: "", is_break: false, label: "" })
+      fetchAll()
+    } catch (err) {
+      console.error("Failed to add period:", err)
+    } finally {
+      setSavingPeriod(false)
+    }
   }
 
   const classOptions = classes.map(c => ({ label: c.name, value: c.id }))
   const subjectOptions = subjects.map(s => ({ label: s.name, value: s.id }))
-  const teacherOptions = teachers.map(t => ({ label: `${t.name} (${t.subject})`, value: t.id }))
+  const teacherOptions = teachers.map(t => ({ label: `${t.name} (${t.subject_name ?? "—"})`, value: t.id }))
 
   if (loading) return (
     <div className="flex items-center justify-center h-full">
@@ -455,9 +493,9 @@ export default function ScheduleManager() {
                             {/* Cell content  */}
                             <div className="flex flex-col gap-1 pr-10">
                               <p className="text-xs font-semibold truncate" style={{ color }}>
-                                {slot.subjects?.name}
+                                {getSubjectName(slot.subject_id)}
                               </p>
-                              <p className="text-xs text-muted truncate">{slot.teachers?.name}</p>
+                              <p className="text-xs text-muted truncate">{getTeacherName(slot.teacher_id)}</p>
                               <p className="text-xs text-faint">Rm {slot.room}</p>
                             </div>
                           </div>

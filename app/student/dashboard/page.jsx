@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMyResults, getMyAttendance, getMySchedule } from "@/lib/api/students"
+import { getNotices } from "@/lib/api/public"
 import { useAuth } from "@/context/AuthContext"
 import Link from "next/link"
 import {
@@ -43,17 +44,27 @@ export default function StudentDashboard() {
   useEffect(() => {
     if (!user) return
     const fetchData = async () => {
-      const [resultsRes, attendanceRes, noticesRes, scheduleRes] = await Promise.all([
-        supabase.from("results").select("*, subjects(name)").eq("student_id", user.id),
-        supabase.from("attendance").select("*").eq("student_id", user.id),
-        supabase.from("notices").select("*").order("date", { ascending: false }).limit(4),
-        supabase.from("schedule").select("*, subjects(name)").eq("class_id", user.class_id),
-      ])
-      if (resultsRes.data) setResults(resultsRes.data)
-      if (attendanceRes.data) setAttendance(attendanceRes.data)
-      if (noticesRes.data) setNotices(noticesRes.data)
-      if (scheduleRes.data) setSchedule(scheduleRes.data)
-      setLoading(false)
+      try {
+        const [resultsData, attendanceData, noticesPage, scheduleData] = await Promise.all([
+          getMyResults(),
+          getMyAttendance(),
+          getNotices({ limit: 50 }),
+          getMySchedule(),
+        ])
+        setResults(resultsData ?? [])
+        setAttendance(attendanceData ?? [])
+        // Public notices are paginated; take the 4 most recent by date.
+        const noticeItems = (noticesPage?.items ?? [])
+          .slice()
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 4)
+        setNotices(noticeItems)
+        setSchedule(scheduleData ?? [])
+      } catch (err) {
+        console.error("Failed to load dashboard:", err)
+      } finally {
+        setLoading(false)
+      }
     }
     fetchData()
   }, [user])
@@ -77,7 +88,7 @@ export default function StudentDashboard() {
     : 0
 
   const marksBarData = latestExam.map(r => ({
-    name: r.subjects?.name?.split(" ")[0] ?? "—",
+    name: r.subject_name?.split(" ")[0] ?? "—",
     marks: r.marks,
   }))
 
@@ -358,7 +369,7 @@ export default function StudentDashboard() {
                   </div>
                   <div className="w-px h-8 bg-border shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text truncate">{cls.subjects?.name}</p>
+                    <p className="text-sm font-medium text-text truncate">{cls.subject_name}</p>
                     <p className="text-xs text-muted">Room {cls.room}</p>
                   </div>
                   <span className="text-xs text-faint shrink-0">#{i + 1}</span>

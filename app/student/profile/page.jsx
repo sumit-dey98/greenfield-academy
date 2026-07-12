@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMyClass, updateMe } from "@/lib/api/students"
 import { useAuth } from "@/context/AuthContext"
 import {
   User, Mail, Phone, MapPin, Calendar,
@@ -9,44 +9,43 @@ import {
 } from "lucide-react"
 
 export default function StudentProfile() {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const [cls, setCls] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [form, setForm] = useState({ phone: "", address: "" })
+  const [form, setForm] = useState({ phone: user?.phone ?? "", address: user?.address ?? "" })
 
   useEffect(() => {
     if (!user) return
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("classes")
-        .select("*, teachers(name, subject)")
-        .eq("id", user.class_id)
-        .single()
-      if (data) setCls(data)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const data = await getMyClass()
+        setCls(data)
+      } catch (err) {
+        // 404 = not assigned to a class
+        if (err?.status !== 404) console.error("Failed to load class:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
   }, [user])
 
   const handleSave = async () => {
     setSaving(true)
-    const { error } = await supabase
-      .from("students")
-      .update({ phone: form.phone, address: form.address })
-      .eq("id", user.id)
-
-    if (!error) {
-      const updated = { ...user, ...form }
-      localStorage.setItem("user", JSON.stringify(updated))
-      setUser(updated)
+    try {
+      await updateMe({ phone: form.phone, address: form.address })
+      updateUser({ phone: form.phone, address: form.address })
       setSuccess(true)
       setEditing(false)
       setTimeout(() => setSuccess(false), 3000)
+    } catch (err) {
+      console.error("Failed to update profile:", err)
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   if (loading) return (
@@ -174,8 +173,8 @@ export default function StudentProfile() {
             <InfoRow icon={<GraduationCap size={15} />} label="Grade" value={cls ? `Grade ${cls.grade}` : "—"} />
             <InfoRow icon={<Users size={15} />} label="Section" value={cls?.section} />
             <InfoRow icon={<MapPin size={15} />} label="Classroom" value={cls ? `Room ${cls.room}` : "—"} />
-            <InfoRow icon={<User size={15} />} label="Class Teacher" value={cls?.teachers?.name} />
-            <InfoRow icon={<BookOpen size={15} />} label="Teacher Subject" value={cls?.teachers?.subject} />
+            <InfoRow icon={<User size={15} />} label="Class Teacher" value={cls?.teacher_name} />
+            <InfoRow icon={<BookOpen size={15} />} label="Teacher Subject" value={cls?.teacher_subject} />
           </div>
         </div>
 

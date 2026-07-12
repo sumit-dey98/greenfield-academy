@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMySchedule } from "@/lib/api/students"
 import { useAuth } from "@/context/AuthContext"
 import { CalendarDays, Clock } from "lucide-react"
 
@@ -24,16 +24,17 @@ export default function StudentSchedule() {
 
   useEffect(() => {
     if (!user) return
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("schedule")
-        .select("*, subjects(name, code)")
-        .eq("class_id", user.class_id)
-        .order("start_time", { ascending: true })
-      if (data) setSchedule(data)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const data = await getMySchedule()
+        setSchedule((data ?? []).slice().sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? "")))
+      } catch (err) {
+        console.error("Failed to load schedule:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
   }, [user])
 
   // Set active day to today on load
@@ -229,8 +230,8 @@ export default function StudentSchedule() {
 
                   {/* Subject info */}
                   <div className="flex-1 min-w-0 flex md:flex-col items-center md:items-start gap-2">
-                    <p className="font-semibold text-text text-sm">{cls.subjects?.name}</p>
-                    <p className="text-xs text-muted mt-0.5">{cls.subjects?.code}</p>
+                    <p className="font-semibold text-text text-sm">{cls.subject_name}</p>
+                    <p className="text-xs text-muted mt-0.5">{cls.subject_code}</p>
                   </div>
                 </div>
 
