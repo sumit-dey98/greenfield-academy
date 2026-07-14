@@ -38,6 +38,7 @@ const categoryBadge = {
 
 export default function NoticesManager() {
   const [notices, setNotices] = useState([])
+  const [totalNotices, setTotalNotices] = useState(0)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
@@ -54,6 +55,7 @@ export default function NoticesManager() {
         .slice()
         .sort((a, b) => new Date(b.date) - new Date(a.date))
       setNotices(items)
+      setTotalNotices(page?.total ?? items.length)
     } catch (err) {
       console.error("Failed to load notices:", err)
     } finally {
@@ -149,7 +151,7 @@ export default function NoticesManager() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="page-title">Notices</h1>
-          <p className="page-subtitle">{notices.length} notices published.</p>
+          <p className="page-subtitle">{totalNotices} notices published.</p>
         </div>
         <button onClick={openCreate} className="btn btn-primary">
           <Plus size={15} />
@@ -246,7 +248,7 @@ export default function NoticesManager() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border">
+          <div className="flex gap-3 pt-5 border-t border-border">
             <button onClick={handleSave} disabled={saving} className="btn btn-primary disabled:opacity-60">
               {saving
                 ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

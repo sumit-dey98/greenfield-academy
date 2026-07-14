@@ -79,6 +79,7 @@ const emptyForm = {
 export default function TeachersManager() {
   const { attemptWrite } = useAuth()
   const [teachers, setTeachers] = useState([])
+  const [totalTeachers, setTotalTeachers] = useState(0)
   const [classes, setClasses] = useState([])
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -104,6 +105,7 @@ export default function TeachersManager() {
         listSubjects(),
       ])
       setTeachers(teachersPage?.items ?? [])
+      setTotalTeachers(teachersPage?.total ?? 0)
       setClasses(classesData ?? [])
       setSubjects(subjectsData ?? [])
     } catch (err) {
@@ -334,7 +336,7 @@ export default function TeachersManager() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="page-title">Teachers</h1>
-          <p className="page-subtitle">{teachers.length} staff members.</p>
+          <p className="page-subtitle">{totalTeachers} staff members.</p>
         </div>
         <button onClick={openAdd} className="btn btn-primary">
           <Plus size={15} />
@@ -397,7 +399,7 @@ export default function TeachersManager() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border">
+          <div className="flex gap-3 pt-5 border-t border-border">
             <button onClick={handleSave} disabled={saving} className="btn btn-primary disabled:opacity-60">
               {saving
                 ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

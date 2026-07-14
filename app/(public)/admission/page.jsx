@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react"
 import { getAdmissionStatus } from "@/lib/api/public"
 import toast from "react-hot-toast"
-import Navbar from "@/components/Navbar"
-import Footer from "@/components/Footer"
 import Input from "@/components/ui/Input"
 import Select from "@/components/ui/Select"
 import DatePicker from "@/components/ui/DatePicker"
@@ -140,11 +138,8 @@ export default function AdmissionPage() {
   const isDisabled = !admissionOpen || submitting
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg">
-      <Navbar />
-
-      <main className="flex-1 py-10 md:py-14 px-4 md:px-6">
-        <div className="max-w-3xl mx-auto flex flex-col gap-8">
+    <div className="flex-1 py-10 md:py-14 px-4 md:px-6">
+      <div className="max-w-3xl mx-auto flex flex-col gap-8">
 
           {/* Header */}
           <div className="text-center">
@@ -165,7 +160,7 @@ export default function AdmissionPage() {
           {admissionOpen === null ? (
             <div className="card h-16 bg-surface-2 animate-pulse" />
           ) : admissionOpen ? (
-            <div className="flex items-start gap-3 px-5 py-4 bg-primary-light border border-success rounded-lg">
+            <div className="flex items-start gap-3 px-5 py-4 bg-primary-light border border-success rounded-md">
               <CheckCircle size={20} strokeWidth={2.5} className="text-green-700 shrink-0 mt-1" />
               <div>
                 <p className="text-lg font-semibold text-green-800">
@@ -177,7 +172,7 @@ export default function AdmissionPage() {
               </div>
             </div>
           ) : (
-            <div className="flex items-start gap-3 px-5 py-4 bg-red-100 border border-border rounded-lg">
+            <div className="flex items-start gap-3 px-5 py-4 bg-red-100 border border-border rounded-md">
               <Lock size={20} strokeWidth={2.5} className="text-red-600 shrink-0 mt-1" />
               <div>
                 <p className="text-lg font-semibold text-red-500">
@@ -221,12 +216,12 @@ export default function AdmissionPage() {
                   </span>
                 </div>
               )}
-              <button
+              {/* <button
                 onClick={() => setResult(null)}
                 className="btn btn-outline mt-2"
               >
                 Submit another application
-              </button>
+              </button> */}
             </div>
           ) : (
 
@@ -495,18 +490,15 @@ export default function AdmissionPage() {
                 {submitting ? (
                   <span className="w-5 h-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                 ) : !admissionOpen ? (
-                  <><Lock size={15} /> Admissions Closed</>
+                  <><Lock size={22} /> Admissions Closed</>
                 ) : (
-                  <><GraduationCap size={15} /> Submit Application</>
+                  <><GraduationCap size={22} /> Submit Application</>
                 )}
               </button>
 
             </form>
           )}
-        </div>
-      </main>
-
-      <Footer />
+      </div>
     </div>
   )
 }

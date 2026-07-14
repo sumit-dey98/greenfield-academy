@@ -54,26 +54,37 @@ export default function ScheduleManager() {
 
   const popoverRef = useRef(null)
 
-  const fetchAll = async () => {
+  // Reference data (classes/subjects/teachers/periods) is small and fixed — load once.
+  const fetchMeta = async () => {
     try {
-      const [classesData, subjectsData, teachersPage, periodsData, schedulePage] = await Promise.all([
+      const [classesData, subjectsData, teachersPage, periodsData] = await Promise.all([
         listClasses(),
         listSubjects(),
         listTeachers({ limit: 200 }),
         listPeriods(),
-        listSchedule({ limit: 200 }),
       ])
       const cls = classesData ?? []
       setClasses(cls)
       setSubjects(subjectsData ?? [])
       setTeachers(teachersPage?.items ?? [])
       setPeriods(periodsData ?? [])
-      setSchedule(schedulePage?.items ?? [])
       setSelectedClass(prev => prev || (cls[0]?.id ?? ""))
     } catch (err) {
-      console.error("Failed to load schedule:", err)
+      console.error("Failed to load schedule metadata:", err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // The timetable itself is fetched per selected class — one class is at most
+  // days × periods entries, well within a single page.
+  const fetchSchedule = async (classId) => {
+    if (!classId) { setSchedule([]); return }
+    try {
+      const schedulePage = await listSchedule({ class_id: classId, limit: 200 })
+      setSchedule(schedulePage?.items ?? [])
+    } catch (err) {
+      console.error("Failed to load schedule:", err)
     }
   }
 
@@ -81,7 +92,8 @@ export default function ScheduleManager() {
   const getSubjectName = (id) => subjects.find(s => s.id === id)?.name
   const getTeacherName = (id) => teachers.find(t => t.id === id)?.name
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => { fetchMeta() }, [])
+  useEffect(() => { fetchSchedule(selectedClass) }, [selectedClass])
 
   useEffect(() => {
     const handler = (e) => {
@@ -104,18 +116,10 @@ export default function ScheduleManager() {
       s.day === day
     )
 
-  const checkConflict = (periodId, day, teacherId) => {
-    if (!teacherId) return null
-    const clash = schedule.find(s =>
-      s.period_id === periodId &&
-      s.day === day &&
-      s.teacher_id === teacherId &&
-      s.class_id !== selectedClass
-    )
-    if (!clash) return null
-    const clashClass = classes.find(c => c.id === clash.class_id)
-    return `${teachers.find(t => t.id === teacherId)?.name} is already teaching another class (${clashClass?.name ?? clash.class_id}) at this time.`
-  }
+  // Only this class's schedule is loaded, so we can't pre-detect cross-class teacher
+  // clashes here — the backend enforces that on save (TEACHER_SCHEDULE_CONFLICT) and
+  // its message is surfaced in the popover. Nothing to warn about client-side.
+  const checkConflict = () => null
 
   const openCell = (periodId, day, anchorEl) => {
     if (!attemptWrite("academic")) return
@@ -176,7 +180,7 @@ export default function ScheduleManager() {
       }
       setActiveCell(null)
       setConflict(null)
-      fetchAll()
+      fetchSchedule(selectedClass)
     } catch (err) {
       // Surface backend schedule-conflict messages (teacher/class/room) in the popover.
       console.error("Failed to save slot:", err)
@@ -198,7 +202,7 @@ export default function ScheduleManager() {
     } finally {
       setDeleting(null)
       setActiveCell(null)
-      fetchAll()
+      fetchSchedule(selectedClass)
     }
   }
 
@@ -223,7 +227,7 @@ export default function ScheduleManager() {
         is_break: periodForm.is_break,
       })
       setEditingPeriod(null)
-      fetchAll()
+      fetchMeta()
     } catch (err) {
       console.error("Failed to save period:", err)
     } finally {
@@ -234,13 +238,17 @@ export default function ScheduleManager() {
   const handleDeletePeriod = async (periodId) => {
     if (!attemptWrite("academic")) return
     try {
-      // Deleting a period is blocked while schedule entries reference it — remove those first.
-      const referencing = schedule.filter(s => s.period_id === periodId)
+      // Deleting a period is blocked while schedule entries reference it. We only have the
+      // selected class's entries loaded; fetch every class's entries for this period so we
+      // can clear them all before deleting the period.
+      const refPage = await listSchedule({ /* all classes */ limit: 200 })
+      const referencing = (refPage?.items ?? []).filter(s => s.period_id === periodId)
       for (const slot of referencing) {
         await deleteSchedule(slot.id)
       }
       await deletePeriod(periodId)
-      fetchAll()
+      fetchMeta()
+      fetchSchedule(selectedClass)
     } catch (err) {
       console.error("Failed to delete period:", err)
     }
@@ -261,7 +269,7 @@ export default function ScheduleManager() {
       })
       setShowAddPeriod(false)
       setNewPeriod({ start_time: "", end_time: "", is_break: false, label: "" })
-      fetchAll()
+      fetchMeta()
     } catch (err) {
       console.error("Failed to add period:", err)
     } finally {

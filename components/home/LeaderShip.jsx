@@ -32,7 +32,7 @@ export default function Leadership({
   if (leadership.length === 0) return null
 
   return (
-    <section className="py-10 md:py-20 px-6 md:px-12 bg-surface border-t border-surface-2">
+    <section className="py-10 md:py-20 px-6 md:px-12 bg-gradient-to-t from-surface-2 to-surface border-t border-surface-2">
       <div className="max-w-6xl mx-auto">
 
         <div className="text-center mb-12">
@@ -52,7 +52,7 @@ export default function Leadership({
                 <img
                   src={l.avatar}
                   alt={l.name}
-                  className="w-52 h-52 rounded-lg object-cover bg-surface-2 ring-2 ring-primary"
+                  className="w-52 h-52 rounded-md object-cover bg-surface-2 ring-2 ring-primary"
                 />
                 {message && 
                   <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center">

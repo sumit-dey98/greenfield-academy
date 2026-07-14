@@ -10,7 +10,20 @@ import {
   CartesianGrid, ResponsiveContainer,
 } from "recharts"
 import DataTable from "@/components/ui/DataTable"
+import Select from "@/components/ui/Select"
 import { useAuth } from "@/context/AuthContext"
+
+function monthRange(monthStr) {
+  const [y, m] = monthStr.split("-").map(Number)
+  const from_date = `${y}-${String(m).padStart(2, "0")}-01`
+  const to_date = new Date(y, m, 0).toISOString().split("T")[0]
+  return { from_date, to_date }
+}
+
+function currentMonthKey() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+}
 
 const statusStyles = {
   present: { badge: "badge-success", label: "Present" },
@@ -24,25 +37,59 @@ const COLORS = {
   warning: "#f59e0b",
 }
 
+// Trailing 6-month window for the trend chart — bounded and fixed-size, unlike
+// fetching a student's entire attendance history.
+function trailingSixMonthsRange() {
+  const now = new Date()
+  const from = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+  const from_date = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}-01`
+  const to_date = now.toISOString().split("T")[0]
+  return { from_date, to_date }
+}
+
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => {
+  const d = new Date()
+  d.setMonth(d.getMonth() - i)
+  const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+  const label = d.toLocaleDateString("en-GB", { month: "long", year: "numeric" })
+  return { label, value }
+})
+
 export default function StudentAttendance() {
   const { user } = useAuth()
+  const [month, setMonth] = useState(currentMonthKey)
   const [attendance, setAttendance] = useState([])
+  const [trend, setTrend] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState("all")
 
+  // Table + stat cards: scoped to exactly the selected month (~25-30 rows).
   useEffect(() => {
     if (!user) return
+    let cancelled = false
     const load = async () => {
+      setLoading(true)
       try {
-        const data = await getMyAttendance()
-        setAttendance(data ?? [])
+        const data = await getMyAttendance(monthRange(month))
+        if (!cancelled) setAttendance(data ?? [])
       } catch (err) {
         console.error("Failed to load attendance:", err)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     load()
+    return () => { cancelled = true }
+  }, [user, month])
+
+  // Trend chart: a fixed trailing 6-month window, fetched once (not tied to `month`).
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    getMyAttendance(trailingSixMonthsRange())
+      .then(data => { if (!cancelled) setTrend(data ?? []) })
+      .catch(err => console.error("Failed to load attendance trend:", err))
+    return () => { cancelled = true }
   }, [user])
 
   const total = attendance.length
@@ -52,20 +99,20 @@ export default function StudentAttendance() {
   const rate = total ? Math.round((present / total) * 100) : 0
 
   const monthlyMap = {}
-  attendance.forEach(a => {
+  trend.forEach(a => {
     const d = new Date(a.date)
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-    const month = d.toLocaleDateString("en-GB", { month: "short" })
+    const monthLabel = d.toLocaleDateString("en-GB", { month: "short" })
     const year = d.getFullYear()
     const isCurrentMonth = d.getMonth() === new Date().getMonth() && year === new Date().getFullYear()
     const daysInMonth = isCurrentMonth
       ? new Date().getDate()
       : new Date(year, d.getMonth() + 1, 0).getDate()
-    const label = `${month} 1–${daysInMonth}`
+    const label = `${monthLabel} 1–${daysInMonth}`
 
     if (!monthlyMap[key]) monthlyMap[key] = {
       key,
-      month,
+      month: monthLabel,
       legend: label,
       present: 0, absent: 0, late: 0,
     }
@@ -185,9 +232,20 @@ export default function StudentAttendance() {
   return (
     <div className="flex flex-col gap-6">
 
-      <div>
-        <h1 className="page-title">Attendance</h1>
-        <p className="page-subtitle">Track your attendance record and punctuality.</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="page-title">Attendance</h1>
+          <p className="page-subtitle">Track your attendance record and punctuality.</p>
+        </div>
+        <div className="w-full sm:w-52">
+          <Select
+            options={MONTH_OPTIONS}
+            value={month}
+            onChange={setMonth}
+            placeholder="Select month"
+            searchable={false}
+          />
+        </div>
       </div>
 
       {/* Stat cards */}

@@ -40,6 +40,9 @@ export default function TeacherStudents() {
         setStudents(studentData)
 
         // Results this teacher can see for their homeroom class, narrowed to their subject.
+        // The teacher's own subject_id isn't exposed on the /me profile (only the display
+        // name), so the subject narrowing has to happen client-side here; the class scope
+        // itself keeps the fetch small (one class's roster across a handful of exams).
         const classId = roster?.class_info?.id
         if (classId) {
           const page = await getMyResults({ class_id: classId, limit: 200 })

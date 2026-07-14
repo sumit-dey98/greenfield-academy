@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react"
 import { getNotices } from "@/lib/api/public"
 import { Bell, Calendar, ChevronDown, Search, X } from "lucide-react"
-import Navbar from "@/components/Navbar"
-import Footer from "@/components/Footer"
 
 const categoryMeta = {
   Event: { badge: "badge-info", bg: "#dbeafe", color: "#1e40af" },
@@ -139,13 +137,10 @@ export default function NoticesPage() {
   const visibleNotices = filtered.slice(0, visible)
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg">
-      <Navbar />
+    <div className="flex-1 py-10 md:py-14 px-4 md:px-6">
+      <div className="max-w-3xl mx-auto flex flex-col gap-8">
 
-      <main className="flex-1 py-10 md:py-14 px-4 md:px-6">
-        <div className="max-w-3xl mx-auto flex flex-col gap-8">
-
-          {/* Header */}
+        {/* Header */}
           <div>
             <div className="inline-flex items-center gap-2 bg-primary-light text-primary px-4 py-1.5 rounded-full text-sm font-semibold mb-4 ring-1 ring-primary">
               <Bell size={13} />
@@ -249,10 +244,7 @@ export default function NoticesPage() {
 
           )}
 
-        </div>
-      </main>
-
-      <Footer />
+      </div>
     </div>
   )
 }

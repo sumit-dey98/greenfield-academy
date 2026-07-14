@@ -6,6 +6,7 @@ import { listClasses } from "@/lib/api/classes"
 import { listSubjects } from "@/lib/api/subjects"
 import { listExams } from "@/lib/api/exams"
 import { listStudents } from "@/lib/api/adminPeople"
+import { listCounts } from "@/lib/api/counts"
 import { useAuth } from "@/context/AuthContext"
 import {
   Plus, Pencil, Trash2,
@@ -28,14 +29,33 @@ const statusBadge = {
   ended: "badge-warning",
 }
 
+// Fetch every student of one class (a class roster is small, but page through in case
+// it somehow exceeds the per-request cap).
+async function fetchClassStudents(classId) {
+  const out = []
+  let offset = 0
+  const limit = 200
+  for (;;) {
+    const page = await listStudents({ class_id: classId, limit, offset })
+    const items = page?.items ?? []
+    out.push(...items)
+    if (items.length < limit || out.length >= (page?.total ?? out.length)) break
+    offset += limit
+  }
+  return out
+}
+
 export default function ResultsManager() {
   const { attemptWrite } = useAuth()
 
   // Base data
   const [classes, setClasses] = useState([])
-  const [students, setStudents] = useState([])
   const [subjects, setSubjects] = useState([])
   const [exams, setExams] = useState([])
+
+  // Per-class rosters, fetched lazily and cached by class id — replaces one global
+  // school-wide student fetch with small per-class fetches only when actually needed.
+  const [classStudents, setClassStudents] = useState({})
 
   // Filters
   const [classFilter, setClassFilter] = useState("")
@@ -43,6 +63,10 @@ export default function ResultsManager() {
 
   // Lazy results cache: { [classId_examId]: result[] }
   const [resultsCache, setResultsCache] = useState({})
+
+  // entry_count/marks_sum per class for the selected exam, from the pre-aggregated
+  // /admin/counts endpoint — one call drives every card's summary.
+  const [examCounts, setExamCounts] = useState({})
 
   // Total count for subtitle (filtered by exam)
   const [totalCount, setTotalCount] = useState(0)
@@ -76,15 +100,13 @@ export default function ResultsManager() {
   useEffect(() => {
     const init = async () => {
       try {
-        const [classesData, studentsPage, subjectsData, examsData] = await Promise.all([
+        const [classesData, subjectsData, examsData] = await Promise.all([
           listClasses(),
-          listStudents({ limit: 200 }),
           listSubjects(),
           listExams(),
         ])
         const examsSorted = (examsData ?? []).slice().sort((a, b) => (b.start_date ?? "").localeCompare(a.start_date ?? ""))
         setClasses(classesData ?? [])
-        setStudents(studentsPage?.items ?? [])
         setSubjects(subjectsData ?? [])
         setExams(examsSorted)
         if (examsSorted[0]) setExamFilter(examsSorted[0].id)
@@ -97,18 +119,31 @@ export default function ResultsManager() {
     init()
   }, [])
 
-  // ── Total count for subtitle ──────────────────────────────
-  useEffect(() => {
-    if (!examFilter) { setTotalCount(0); return }
-    const fetchCount = async () => {
-      try {
-        const page = await listResults({ exam_id: examFilter, limit: 1 })
-        setTotalCount(page?.total ?? 0)
-      } catch {
-        setTotalCount(0)
-      }
+  // ── Entry counts + marks sums per class for the selected exam, in one call ──
+  // Drives both the class-card summaries and the total-entries subtitle, without
+  // fetching every result row or every student up front.
+  const loadExamCounts = async () => {
+    if (!examFilter) { setExamCounts({}); setTotalCount(0); return }
+    try {
+      const page = await listCounts({ scope_type: "class", period_type: "exam", period_key: examFilter, limit: 200 })
+      const byClass = {}
+      let total = 0
+      ;(page?.items ?? []).forEach(r => {
+        if (r.subject_id) return // only the all-subjects rollup rows (subject_id null) here
+        const bucket = byClass[r.scope_id] ??= { entry_count: 0, marks_sum: 0 }
+        if (r.metric === "results_entry_count") { bucket.entry_count = r.value; total += r.value }
+        if (r.metric === "results_marks_sum") bucket.marks_sum = r.value
+      })
+      setExamCounts(byClass)
+      setTotalCount(total)
+    } catch (err) {
+      console.error("Failed to load result counts:", err)
     }
-    fetchCount()
+  }
+
+  useEffect(() => {
+    loadExamCounts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examFilter])
 
   // Exam filter shows all exams (the API returns totals per exam directly).
@@ -139,7 +174,7 @@ export default function ResultsManager() {
     setSelectedClass(cls)
     setExpandedStudent(null)
     setSearch("")
-    const results = await loadResultsForClass(cls)
+    const [results] = await Promise.all([loadResultsForClass(cls), loadClassStudents(cls.id)])
     setModalResults(results)
     setClassModalOpen(true)
   }
@@ -154,8 +189,7 @@ export default function ResultsManager() {
       const results = page?.items ?? []
       setResultsCache(prev => ({ ...prev, [cacheKey]: results }))
       setModalResults(results)
-      const countPage = await listResults({ exam_id: examFilter, limit: 1 })
-      setTotalCount(countPage?.total ?? 0)
+      await loadExamCounts() // the counts backing the cards/subtitle just changed
     } catch (err) {
       console.error("Failed to refresh results:", err)
     } finally {
@@ -163,7 +197,16 @@ export default function ResultsManager() {
     }
   }
 
-  const getStudentsForClass = (classId) => students.filter(s => s.class_id === classId)
+  // A class's roster, fetched lazily and cached the first time it's needed
+  // (the class-modal roster, or the add/edit form's student picker).
+  const loadClassStudents = async (classId) => {
+    if (classStudents[classId]) return classStudents[classId]
+    const list = await fetchClassStudents(classId)
+    setClassStudents(prev => ({ ...prev, [classId]: list }))
+    return list
+  }
+
+  const getStudentsForClass = (classId) => classStudents[classId] ?? []
 
   const getResultsForStudent = (studentId) => {
     let r = modalResults.filter(r => r.student_id === studentId)
@@ -184,10 +227,13 @@ export default function ResultsManager() {
   // Load students when class changes in form
   useEffect(() => {
     if (!form.class_id) { setFormStudents([]); return }
-    setFormStudents(students.filter(s => s.class_id === form.class_id))
+    let cancelled = false
+    loadClassStudents(form.class_id).then(list => { if (!cancelled) setFormStudents(list) })
     // Reset student if class changed
     setForm(f => ({ ...f, student_id: "" }))
-  }, [form.class_id, students])
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.class_id])
 
   const validate = () => {
     const e = {}
@@ -218,11 +264,11 @@ export default function ResultsManager() {
 
   const openEdit = (result) => {
     if (!attemptWrite("academic")) return
-    const student = students.find(s => s.id === result.student_id)
+    // Always called from within the class modal, so the class is already known.
     setModalMode("edit")
     setEditingId(result.id)
     setForm({
-      class_id: student?.class_id ?? "",
+      class_id: selectedClass?.id ?? "",
       student_id: result.student_id,
       subject_id: result.subject_id,
       exam_id: result.exam_id,
@@ -348,7 +394,8 @@ export default function ResultsManager() {
       {/* Class cards */}
       <div className="flex flex-col gap-4">
         {visibleClasses.map(cls => {
-          const classStudents = getStudentsForClass(cls.id)
+          const counts = examCounts[cls.id]
+          const avg = counts?.entry_count ? Math.round(counts.marks_sum / counts.entry_count) : null
           const color = gradeColors[cls.grade] ?? "#059669"
           return (
             <button
@@ -365,7 +412,9 @@ export default function ResultsManager() {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-text">{cls.name}</p>
                 <p className="text-xs text-muted mt-0.5">
-                  {classStudents.length} students
+                  {counts?.entry_count
+                    ? `${counts.entry_count} results · avg ${avg}%`
+                    : "No results entered yet"}
                 </p>
               </div>
               <ChevronRight size={16} className="text-faint shrink-0" />
@@ -416,7 +465,7 @@ export default function ResultsManager() {
                         {/* Accordion header */}
                         <div
                           onClick={() => setExpandedStudent(isOpen ? null : student.id)}
-                          className={`w-full flex items-center gap-3 px-3 sm:px-4 py-3 transition-colors cursor-pointer select-none ${isOpen ? "bg-surface-2" : "bg-surface hover:bg-surface-2"}`}
+                          className={`w-full flex items-center gap-3 px-3 sm:px-4 py-3 transition-colors cursor-pointer select-none rounded-md ${isOpen ? "bg-surface-2 rounded-b-none" : "bg-surface hover:bg-surface-2"}`}
                         >
                           <div
                             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
@@ -473,19 +522,19 @@ export default function ResultsManager() {
 
                         {/* Expanded results */}
                         {isOpen && (
-                          <div className="border-t border-border bg-bg">
+                          <div className="border-t border-border bg-surface rounded-b-md">
                             {studentResults.length === 0 ? (
                               <p className="text-xs text-faint py-4 px-4">No results recorded.</p>
                             ) : (
                               <div className="max-h-96 overflow-y-auto overflow-x-auto">
                                 <table className="w-full text-sm border-collapse min-w-[480px]">
-                                  <thead className="sticky top-0 z-10 bg-surface-2 border-b border-border">
+                                  <thead className="sticky top-0 z-10 border-b border-border bg-primary">
                                     <tr>
-                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Subject</th>
-                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Marks</th>
-                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Grade</th>
-                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide hidden sm:table-cell">Remarks</th>
-                                        <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide hidden sm:table-cell" > Action </th>
+                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-surface uppercase tracking-wide">Subject</th>
+                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-surface uppercase tracking-wide">Marks</th>
+                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-surface uppercase tracking-wide">Grade</th>
+                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-surface uppercase tracking-wide hidden sm:table-cell">Remarks</th>
+                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-surface uppercase tracking-wide hidden sm:table-cell" > Action </th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-border">
@@ -637,7 +686,7 @@ export default function ResultsManager() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border">
+          <div className="flex gap-3 pt-5 border-t border-border">
             <button onClick={handleSave} disabled={saving} className="btn btn-primary disabled:opacity-60">
               {saving
                 ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

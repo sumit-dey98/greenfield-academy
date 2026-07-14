@@ -67,16 +67,19 @@ export default function ExamResultsChart({ examIds = null }) {
         return acc
       }, [])
 
-      // Results per class (rows carry exam_id, subject_id, marks); tag each with its class.
+      // Results per (class, exam) — scoped to exactly the exams being charted (usually
+      // 1-3) instead of pulling every exam a class has ever sat, then filtering client-side.
       const classIds = [...new Set(combos.map(c => c.class_id))]
-      const perClass = await Promise.all(
-        classIds.map(cid =>
-          getMyResults({ class_id: cid, limit: 200 })
-            .then(page => (page?.items ?? []).map(r => ({ ...r, class_id: cid })))
-            .catch(() => [])
+      const perClassPerExam = await Promise.all(
+        classIds.flatMap(cid =>
+          examsToShow.map(exam =>
+            getMyResults({ class_id: cid, exam_id: exam.id, limit: 200 })
+              .then(page => (page?.items ?? []).map(r => ({ ...r, class_id: cid })))
+              .catch(() => [])
+          )
         )
       )
-      const results = perClass.flat()
+      const results = perClassPerExam.flat()
 
       const data = combos.map(combo => {
         const shortName = combo.class_name

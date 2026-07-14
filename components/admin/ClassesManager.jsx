@@ -282,7 +282,7 @@ export default function ClassesManager() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border">
+          <div className="flex gap-3 pt-5 border-t border-border">
             <button onClick={handleSave} disabled={saving} className="btn btn-primary disabled:opacity-60">
               {saving
                 ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

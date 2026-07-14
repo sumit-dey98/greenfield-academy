@@ -5,8 +5,6 @@ import { useParams } from "next/navigation"
 import { getEvent, getEvents } from "@/lib/api/public"
 import Link from "next/link"
 import { Calendar, Tag, ArrowLeft, ArrowRight } from "lucide-react"
-import Navbar from "@/components/Navbar"
-import Footer from "@/components/Footer"
 import Carousel from "@/components/ui/Carousel"
 import DOMPurify from "dompurify"
 
@@ -88,15 +86,11 @@ export default function EventPostPage() {
   }
 
   if (!event && !loading) return (
-    <div className="min-h-screen flex flex-col bg-bg">
-      <Navbar />
-      <div className="flex-1 flex flex-col items-center justify-center gap-4">
-        <p className="text-muted text-sm">Event not found.</p>
-        <Link href="/events" className="btn btn-outline">
-          <ArrowLeft size={14} /> Back to Events
-        </Link>
-      </div>
-      <Footer />
+    <div className="flex-1 flex flex-col items-center justify-center gap-4">
+      <p className="text-muted text-sm">Event not found.</p>
+      <Link href="/events" className="btn btn-outline">
+        <ArrowLeft size={14} /> Back to Events
+      </Link>
     </div>
   )
 
@@ -106,12 +100,8 @@ export default function EventPostPage() {
     : ""
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg">
-      <Navbar />
-
-      <main className="flex-1">
-
-        {/* Cover image */}
+    <>
+      {/* Cover image */}
         {loading ? (
           <div className="w-full h-72 md:h-[600px] relative overflow-hidden bg-surface-2 animate-pulse">
             <div
@@ -316,10 +306,6 @@ export default function EventPostPage() {
           </div>
           )}
         </div>
-
-      </main >
-
-      <Footer />
-    </div >
+    </>
   )
 }

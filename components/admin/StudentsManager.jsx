@@ -36,6 +36,8 @@ const emptyForm = {
   guardian: "", guardian_phone: "", class_id: "",
 }
 
+const PAGE_SIZE = 20
+
 export default function StudentsManager() {
   const { attemptWrite } = useAuth()
   const [students, setStudents] = useState([])
@@ -43,6 +45,11 @@ export default function StudentsManager() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [classFilter, setClassFilter] = useState("")
+
+  // Server-driven pagination state.
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE_SIZE)
+  const [total, setTotal] = useState(0)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState("add")
@@ -56,14 +63,36 @@ export default function StudentsManager() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
-  const fetchAll = async () => {
+  // Classes are a small, fixed list — load once for the filter + form dropdowns.
+  useEffect(() => {
+    listClasses()
+      .then(data => setClasses(data ?? []))
+      .catch(err => console.error("Failed to load classes:", err))
+  }, [])
+
+  // Server-side search is on `name` only; debounce keystrokes so we don't fire a
+  // request per character.
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Reset to page 1 whenever the filters change.
+  useEffect(() => { setPage(1) }, [debouncedSearch, classFilter, pageSize])
+
+  // Fetch the current page from the server whenever paging or filters change.
+  const fetchStudents = async () => {
+    setLoading(true)
     try {
-      const [studentsPage, classesData] = await Promise.all([
-        listStudents({ limit: 200 }),
-        listClasses(),
-      ])
+      const studentsPage = await listStudents({
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        name: debouncedSearch || undefined,
+        class_id: classFilter || undefined,
+      })
       setStudents(studentsPage?.items ?? [])
-      setClasses(classesData ?? [])
+      setTotal(studentsPage?.total ?? 0)
     } catch (err) {
       console.error("Failed to load students:", err)
     } finally {
@@ -71,7 +100,10 @@ export default function StudentsManager() {
     }
   }
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    fetchStudents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, debouncedSearch, classFilter])
 
   const classOptions = [
     { label: "All Classes", value: "" },
@@ -79,15 +111,6 @@ export default function StudentsManager() {
   ]
 
   const classSelectOptions = classes.map(c => ({ label: c.name, value: c.id }))
-
-  const filtered = students.filter(s => {
-    const matchSearch = search === "" ||
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      String(s.roll).includes(search) ||
-      s.email.toLowerCase().includes(search.toLowerCase())
-    const matchClass = classFilter === "" || s.class_id === classFilter
-    return matchSearch && matchClass
-  })
 
   const initials = (name) => name?.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
   const getClassName = (classId) => classes.find(c => c.id === classId)?.name ?? "—"
@@ -165,7 +188,7 @@ export default function StudentsManager() {
       }
       setSaved(true)
       setModalOpen(false)
-      fetchAll()
+      fetchStudents()
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
       console.error("Failed to save student:", err)
@@ -192,7 +215,7 @@ export default function StudentsManager() {
       setDeleting(false)
       setConfirmOpen(false)
       setDeleteTarget(null)
-      fetchAll()
+      fetchStudents()
     }
   }
 
@@ -270,7 +293,7 @@ export default function StudentsManager() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="page-title">Students</h1>
-          <p className="page-subtitle">{students.length} students enrolled.</p>
+          <p className="page-subtitle">{total} students enrolled.</p>
         </div>
         <button onClick={openAdd} className="btn btn-primary">
           <Plus size={15} />
@@ -288,7 +311,7 @@ export default function StudentsManager() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
           <SearchBox
-            placeholder="Search by name, roll or email..."
+            placeholder="Search by name..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             onClear={() => setSearch("")}
@@ -306,10 +329,14 @@ export default function StudentsManager() {
       </div>
 
       <DataTable
-        key={`${search}-${classFilter}`}
         columns={columns}
-        data={filtered}
-        pageSize={20}
+        data={students}
+        serverMode
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
         loading={loading}
         emptyMessage="No students found."
       />
@@ -343,7 +370,7 @@ export default function StudentsManager() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border">
+          <div className="flex gap-3 pt-5 border-t border-border">
             <button onClick={handleSave} disabled={saving} className="btn btn-primary disabled:opacity-60">
               {saving
                 ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

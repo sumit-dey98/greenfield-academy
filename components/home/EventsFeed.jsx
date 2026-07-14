@@ -55,7 +55,7 @@ export default function EventsFeed({onReady}) {
             <p className="text-muted text-sm">No events yet.</p>
           </div>
         ) : (
-          <div className="rounded-xl overflow-hidden shadow-lg">
+          <div className="rounded-md overflow-hidden shadow-lg">
             <Carousel
               slides={events}
               variant="feed"

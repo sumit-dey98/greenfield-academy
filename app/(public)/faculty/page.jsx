@@ -1,6 +1,4 @@
 import { getFaculty as fetchFaculty } from "@/lib/api/public"
-import Navbar from "@/components/Navbar"
-import Footer from "@/components/Footer"
 import { GraduationCap, Mail, Phone, BookOpen } from "lucide-react"
 
 const LEADERSHIP_ROLES = ["Chairman", "Principal", "Vice Principal", "Head of Academics"]
@@ -38,12 +36,8 @@ export default async function FacultyPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg">
-      <Navbar />
-
-      <main className="flex-1">
-
-        {/* Hero */}
+    <>
+      {/* Hero */}
         <section className="bg-surface border-b border-border py-10 md:py-20 px-6 md:px-12 relative overflow-hidden">
           <div
             className="absolute inset-0 pointer-events-none opacity-40"
@@ -115,11 +109,7 @@ export default async function FacultyPage() {
             </div>
           </div>
         </section>
-
-      </main>
-
-      <Footer />
-    </div>
+    </>
   )
 }
 

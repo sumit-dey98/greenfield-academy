@@ -88,7 +88,7 @@ const FileUpload = forwardRef(function FileUpload(
         onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        className={`flex flex-col items-center justify-center gap-2 px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 cursor-pointer
+        className={`flex flex-col items-center justify-center gap-2 px-6 py-8 border-2 border-dashed rounded-md transition-all duration-200 cursor-pointer
           ${dragging
             ? "border-primary bg-primary-light"
             : displayError

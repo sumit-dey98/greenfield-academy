@@ -77,6 +77,8 @@ export default function Testimonials({onReady}) {
         </div>
 
         <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-8 md:w-24 z-10 bg-gradient-to-r from-bg to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 md:w-24 z-10 bg-gradient-to-l from-bg to-transparent" />
           <div ref={emblaRef} className="overflow-hidden py-0.5">
             <div className="flex">
               {testimonials.map((t) => (
@@ -84,7 +86,7 @@ export default function Testimonials({onReady}) {
                   key={t.id}
                   className="flex-none w-full md:w-[calc(50%-8px)] px-2"
                 >
-                  <div className="shadow-card rounded-lg flex flex-col gap-4 py-8 px-6 relative h-full select-none cursor-grab">
+                  <div className="shadow-card  card rounded-md flex flex-col gap-4 py-8 px-6 relative h-full select-none cursor-grab">
 
                     {/* Quote icon */}
                     <div className="absolute top-5 right-5 text-primary opacity-30">
@@ -105,13 +107,13 @@ export default function Testimonials({onReady}) {
                         </div>
                       )}
                       <div>
-                        <p className="font-semibold text-text text-sm">{t.name}</p>
-                        <p className="text-xs text-faint">Parent · {t.class_name}</p>
+                        <p className="font-semibold text-text text-lg">{t.name}</p>
+                        <p className="text-sm text-faint">Parent · {t.class_name}</p>
                       </div>
                     </div>
 
                     {/* Quote */}
-                    <p className="text-sm text-muted leading-relaxed italic relative z-10 flex-1">
+                    <p className="text-base text-muted leading-relaxed italic relative z-10 flex-1">
                       "{t.quote}"
                     </p>
 

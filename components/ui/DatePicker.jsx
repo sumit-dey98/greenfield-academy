@@ -76,9 +76,9 @@ function CalendarGrid({ year, month, selected, onSelect, minDate, maxDate, range
 
   return (
     <>
-      <div className="grid grid-cols-7 mb-1">
+      <div className="grid grid-cols-7 mb-1 bg-primary rounded-sm">
         {DAY_HEADERS.map(d => (
-          <div key={d} className="text-center text-xs font-medium text-faint py-1">{d}</div>
+          <div key={d} className="text-center text-xs font-medium text-bg py-1">{d}</div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-y-0.5">

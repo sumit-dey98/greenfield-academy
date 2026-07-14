@@ -123,7 +123,7 @@ export default function StudentLayout({ children }) {
         <div className="px-3 py-4 border-t border-white/10">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-white w-full transition-colors duration-150"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-white w-full transition-colors duration-150"
           >
             <LogOut size={18} />
             Logout

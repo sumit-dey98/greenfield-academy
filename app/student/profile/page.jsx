@@ -75,7 +75,7 @@ export default function StudentProfile() {
         <img
           src={user?.avatar}
           alt={user?.name}
-          className="w-24 h-24 rounded-2xl bg-surface-2 shrink-0 object-cover"
+          className="w-24 h-24 rounded-md bg-surface-2 shrink-0 object-cover"
         />
         <div className="flex-1 text-center sm:text-left">
           <h2 className="text-xl font-bold text-text">{user?.name}</h2>

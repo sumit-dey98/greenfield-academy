@@ -139,7 +139,7 @@ const Select = forwardRef(function Select(
       ref={dropdownRef}
       data-select-dropdown=""
       style={menuPosition === "absolute" ? dropStyle : dropStyle}
-      className="bg-surface border border-border rounded-lg shadow-drop overflow-hidden"
+      className="bg-surface border border-border rounded-sm shadow-drop overflow-hidden"
     >
       {searchable && (
         <div className="flex items-center gap-2 py-2 border-b border-border">
@@ -174,7 +174,7 @@ const Select = forwardRef(function Select(
                 role="option"
                 aria-selected={isActive}
                 onClick={() => handleSelect(opt)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 text-sm text-left transition-colors duration-100
+                className={`w-full flex items-center justify-between px-3 py-2.5 text-xs leading-none text-left transition-colors duration-100
                   ${isActive ? "bg-primary-light text-primary font-medium" : "text-text hover:bg-surface-2"}`}
               >
                 {optLabel}

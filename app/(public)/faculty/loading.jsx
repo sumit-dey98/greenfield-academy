@@ -1,6 +1,3 @@
-import Navbar from "@/components/Navbar"
-import Footer from "@/components/Footer"
-
 function FacultyCardSkeleton() {
   return (
     <div className="card flex flex-col gap-4">
@@ -28,11 +25,8 @@ function FacultyCardSkeleton() {
 
 export default function FacultyLoading() {
   return (
-    <div className="min-h-screen flex flex-col bg-bg">
-      <Navbar />
-      <main className="flex-1">
-
-        {/* Hero skeleton */}
+    <>
+      {/* Hero skeleton */}
         <section className="bg-surface border-b border-border py-10 md:py-20 px-6 md:px-12">
           <div className="max-w-4xl mx-auto flex flex-col items-center gap-4">
             <div className="h-6 w-28 rounded-full bg-surface-2 animate-pulse" />
@@ -75,9 +69,6 @@ export default function FacultyLoading() {
             </div>
           </div>
         </section>
-
-      </main>
-      <Footer />
-    </div>
+    </>
   )
 }

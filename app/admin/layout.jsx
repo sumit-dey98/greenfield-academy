@@ -62,7 +62,7 @@ function NavGroup({ item, pathname, setSidebarOpen }) {
     <div>
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-left
+        className="flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium w-full text-left
           text-sidebar-text hover:bg-sidebar-hover hover:text-white transition-colors duration-150"
       >
         {item.icon}
@@ -81,7 +81,7 @@ function NavGroup({ item, pathname, setSidebarOpen }) {
                 key={child.href}
                 href={child.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium no-underline
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-sm text-sm font-medium no-underline
                   transition-colors duration-150
                   ${active
                     ? "bg-sidebar-active text-white"
@@ -204,7 +204,7 @@ export default function AdminLayout({ children }) {
                 key={item.href}
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium no-underline
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium no-underline
           transition-colors duration-150
           ${pathname === item.href
                     ? "bg-sidebar-active text-white"
@@ -222,7 +222,7 @@ export default function AdminLayout({ children }) {
         <div className="px-3 py-4 border-t border-white/10">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-white w-full transition-colors duration-150"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-white w-full transition-colors duration-150"
           >
             <LogOut size={18} />
             Logout

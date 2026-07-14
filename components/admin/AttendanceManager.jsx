@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { listAttendance, markAttendance } from "@/lib/api/attendance"
 import { listClasses } from "@/lib/api/classes"
 import { listStudents } from "@/lib/api/adminPeople"
+import { listCounts } from "@/lib/api/counts"
 import { useAuth } from "@/context/AuthContext"
 import {
   ChevronDown, Save,
@@ -46,11 +47,25 @@ function getMonthRange(monthStr) {
   return { start, end }
 }
 
+// Fetch every student of one class (a class roster is small, but page through in case
+// it somehow exceeds the per-request cap).
+async function fetchClassStudents(classId) {
+  const out = []
+  let offset = 0
+  const limit = 200
+  for (;;) {
+    const page = await listStudents({ class_id: classId, limit, offset })
+    const items = page?.items ?? []
+    out.push(...items)
+    if (items.length < limit || out.length >= (page?.total ?? out.length)) break
+    offset += limit
+  }
+  return out
+}
+
 export default function AttendanceManager() {
   const { attemptWrite } = useAuth()
   const [classes, setClasses] = useState([])
-  const [students, setStudents] = useState([])
-  const [attendance, setAttendance] = useState([])
   const [loading, setLoading] = useState(true)
 
   const [classFilter, setClassFilter] = useState("")
@@ -59,9 +74,20 @@ export default function AttendanceManager() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
   })
   const [expandedClass, setExpandedClass] = useState(null)
+  // Per-class data, fetched lazily on expand and keyed by class id:
+  //   classData[classId] = { students: [...], attendance: [...] }
+  const [classData, setClassData] = useState({})
+  const [loadingClass, setLoadingClass] = useState(null)
+  // Present/absent/late for every class in the selected month, from the pre-aggregated
+  // /admin/counts endpoint — one call covers every card's summary, no roster fetch needed.
+  const [monthCounts, setMonthCounts] = useState({})
+  // Student count per class (doesn't change with the month) — one cheap limit:1 call per
+  // class, read from Page.total rather than fetching full rosters up front.
+  const [studentCounts, setStudentCounts] = useState({})
 
   const [markMode, setMarkMode] = useState(false)
   const [markClass, setMarkClass] = useState("")
+  const [markStudents, setMarkStudents] = useState([])
   const [markDate, setMarkDate] = useState(
     formatDateForDisplay(new Date().toISOString().split("T")[0])
   )
@@ -70,47 +96,110 @@ export default function AttendanceManager() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  const fetchAll = async () => {
-    const { start, end } = getMonthRange(monthFilter)
+  useEffect(() => {
+    listClasses()
+      .then(data => setClasses(data ?? []))
+      .catch(err => console.error("Failed to load classes:", err))
+      .finally(() => setLoading(false))
+
+    // Every class's roster size, in one call — a student_count row per class, kept in
+    // sync on student create/delete/class-transfer (see utils.apply_student_count_delta).
+    listCounts({ scope_type: "class", metric: "student_count", limit: 200 })
+      .then(page => {
+        const byClass = Object.fromEntries((page?.items ?? []).map(r => [r.scope_id, r.value]))
+        setStudentCounts(byClass)
+      })
+      .catch(err => console.error("Failed to load student counts:", err))
+  }, [])
+
+  // Every class's present/absent/late for the selected month, in one call — drives the
+  // collapsed card summaries without fetching any roster/attendance rows up front.
+  const loadMonthCounts = async () => {
     try {
-      const [classesData, studentsPage, attendancePage] = await Promise.all([
-        listClasses(),
-        listStudents({ limit: 200 }),
-        listAttendance({ from_date: start, to_date: end, limit: 2000 }),
-      ])
-      setClasses(classesData ?? [])
-      setStudents(studentsPage?.items ?? [])
-      setAttendance(attendancePage?.items ?? [])
+      const page = await listCounts({ scope_type: "class", period_type: "month", period_key: monthFilter, limit: 200 })
+      const byClass = {}
+      ;(page?.items ?? []).forEach(r => {
+        const bucket = byClass[r.scope_id] ??= { present: 0, absent: 0, late: 0, excused: 0 }
+        const status = r.metric.replace("attendance_", "")
+        if (status in bucket) bucket[status] = r.value
+      })
+      setMonthCounts(byClass)
     } catch (err) {
-      console.error("Failed to load attendance:", err)
-    } finally {
-      setLoading(false)
+      console.error("Failed to load attendance counts:", err)
     }
   }
 
-  useEffect(() => { fetchAll() }, [monthFilter])
+  useEffect(() => {
+    loadMonthCounts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthFilter])
 
+  // Load one class's roster + this month's attendance (used by the expandable cards).
+  const loadClassData = async (classId) => {
+    const { start, end } = getMonthRange(monthFilter)
+    setLoadingClass(classId)
+    try {
+      const [students, attendancePage] = await Promise.all([
+        fetchClassStudents(classId),
+        listAttendance({ class_id: classId, from_date: start, to_date: end, limit: 2000 }),
+      ])
+      setClassData(prev => ({
+        ...prev,
+        [classId]: { students, attendance: attendancePage?.items ?? [] },
+      }))
+    } catch (err) {
+      console.error("Failed to load class attendance:", err)
+    } finally {
+      setLoadingClass(null)
+    }
+  }
+
+  // Changing the month invalidates any already-loaded class data; drop the cache and
+  // re-fetch whichever class is currently expanded.
+  useEffect(() => {
+    setClassData({})
+    if (expandedClass) loadClassData(expandedClass)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthFilter])
+
+  const toggleClass = (classId) => {
+    const next = expandedClass === classId ? null : classId
+    setExpandedClass(next)
+    if (next && !classData[next]) loadClassData(next)
+  }
+
+  // Mark panel: load the chosen class's roster once a class is picked.
+  useEffect(() => {
+    if (!markMode || !markClass) { setMarkStudents([]); return }
+    let cancelled = false
+    fetchClassStudents(markClass)
+      .then(list => { if (!cancelled) setMarkStudents(list) })
+      .catch(err => console.error("Failed to load class roster:", err))
+    return () => { cancelled = true }
+  }, [markClass, markMode])
+
+  // Mark panel: prefill existing marks for the chosen class + date.
   useEffect(() => {
     if (!markMode || !markClass || !markDate) return
     const dbDate = formatDateForDB(markDate)
-    const classStudents = students.filter(s => s.class_id === markClass)
-    const existing = attendance.filter(a =>
-      a.date === dbDate &&
-      classStudents.some(s => s.id === a.student_id)
-    )
-    const attMap = {}
-    const exMap = {}
-    existing.forEach(a => {
-      attMap[a.student_id] = a.status
-      exMap[a.student_id] = a.id
-    })
-    setMarkMap(attMap)
-    setExistingMap(exMap)
-    setSaved(false)
-  }, [markDate, markClass, markMode, students, attendance])
+    let cancelled = false
+    listAttendance({ class_id: markClass, from_date: dbDate, to_date: dbDate, limit: 2000 })
+      .then(page => {
+        if (cancelled) return
+        const attMap = {}
+        const exMap = {}
+        ;(page?.items ?? []).forEach(a => {
+          attMap[a.student_id] = a.status
+          exMap[a.student_id] = a.id
+        })
+        setMarkMap(attMap)
+        setExistingMap(exMap)
+        setSaved(false)
+      })
+      .catch(err => console.error("Failed to load existing marks:", err))
+    return () => { cancelled = true }
+  }, [markDate, markClass, markMode])
 
-  const getStudentsForClass = (classId) => students.filter(s => s.class_id === classId)
-  const getAttendanceForStudent = (studentId) => attendance.filter(a => a.student_id === studentId)
   const initials = (name) => name?.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
 
   const monthOptions = Array.from({ length: 36 }, (_, i) => {
@@ -130,9 +219,8 @@ export default function AttendanceManager() {
   }
 
   const markAll = (status) => {
-    const classStudents = students.filter(s => s.class_id === markClass)
     const all = {}
-    classStudents.forEach(s => { all[s.id] = status })
+    markStudents.forEach(s => { all[s.id] = status })
     setMarkMap(all)
     setSaved(false)
   }
@@ -147,9 +235,8 @@ export default function AttendanceManager() {
     if (!attemptWrite("academic")) return
     setSaving(true)
     const dbDate = formatDateForDB(markDate)
-    const classStudents = students.filter(s => s.class_id === markClass)
 
-    const records = classStudents.map(s => ({
+    const records = markStudents.map(s => ({
       student_id: s.id,
       status: markMap[s.id] ?? "absent",
     }))
@@ -157,7 +244,13 @@ export default function AttendanceManager() {
     try {
       await markAttendance({ date: dbDate, records })
       setSaved(true)
-      fetchAll()
+      // Refresh the expanded card if it's the class we just marked.
+      if (expandedClass === markClass) {
+        setClassData(prev => { const n = { ...prev }; delete n[markClass]; return n })
+        loadClassData(markClass)
+      }
+      // The counts backing every collapsed card just changed for this month.
+      if (dbDate.slice(0, 7) === monthFilter) loadMonthCounts()
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
       console.error("Failed to save attendance:", err)
@@ -167,11 +260,13 @@ export default function AttendanceManager() {
   }
 
   const getClassStats = (classId) => {
-    const classStudents = getStudentsForClass(classId)
-    const classAtt = attendance.filter(a => classStudents.some(s => s.id === a.student_id))
-    const present = classAtt.filter(a => a.status === "present").length
-    const total = classAtt.length
-    return { present, total, rate: total ? Math.round((present / total) * 100) : null }
+    const c = monthCounts[classId]
+    if (!c) return { present: 0, absent: 0, late: 0, total: 0, rate: null }
+    const total = c.present + c.absent + c.late + c.excused
+    return {
+      present: c.present, absent: c.absent, late: c.late, total,
+      rate: total ? Math.round((c.present / total) * 100) : null,
+    }
   }
 
   if (loading) return (
@@ -253,7 +348,7 @@ export default function AttendanceManager() {
                   <div className="flex items-center gap-2">
                     <Users size={15} className="text-primary" />
                     <span className="text-sm font-semibold text-text">
-                      {students.filter(s => s.class_id === markClass).length} Students
+                      {markStudents.length} Students
                     </span>
                     <span className="text-xs text-muted">
                       · {Object.keys(markMap).length} marked
@@ -261,7 +356,7 @@ export default function AttendanceManager() {
                   </div>
                 </div>
                 <div className="divide-y divide-border">
-                  {students.filter(s => s.class_id === markClass).map(student => {
+                  {markStudents.map(student => {
                     const status = markMap[student.id] ?? null
                     return (
                       <div
@@ -346,8 +441,11 @@ export default function AttendanceManager() {
       {/* Class cards */}
       <div className="flex flex-col gap-4">
         {visibleClasses.map(cls => {
-          const classStudents = getStudentsForClass(cls.id)
+          const data = classData[cls.id]
+          const classStudents = data?.students ?? []
+          const classAttendance = data?.attendance ?? []
           const isExpanded = expandedClass === cls.id
+          const isClassLoading = loadingClass === cls.id
           const stats = getClassStats(cls.id)
           const gradeColors = { 9: "#059669", 10: "#0891b2", 11: "#9333ea", 12: "#f59e0b" }
           const color = gradeColors[cls.grade] ?? "#059669"
@@ -355,8 +453,8 @@ export default function AttendanceManager() {
           return (
             <div key={cls.id} className="table-wrapper p-0 overflow-hidden">
               <button
-                onClick={() => setExpandedClass(isExpanded ? null : cls.id)}
-                className={`w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-2 transition-colors text-left ${isExpanded ? "bg-surface-2" : ""}`}
+                onClick={() => toggleClass(cls.id)}
+                className={`w-full flex items-center gap-4 px-5 py-4 bg-surface hover:bg-surface-2 transition-colors text-left ${isExpanded ? "bg-surface-2" : ""}`}
               >
                 <div
                   className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold shrink-0"
@@ -367,17 +465,19 @@ export default function AttendanceManager() {
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-text">{cls.name}</p>
                   <p className="text-xs text-muted mt-0.5">
-                    {classStudents.length} students
-                    {stats.rate !== null && ` · ${stats.rate}% attendance this month`}
+                    {studentCounts[cls.id] ?? "…"} students
+                    {stats.rate !== null
+                      ? ` · ${stats.rate}% attendance this month`
+                      : " · no attendance marked yet this month"}
                   </p>
                 </div>
 
                 {stats.total > 0 && (
                   <div className="hidden sm:flex items-center gap-4 shrink-0">
                     {[
-                      { label: "Present", value: attendance.filter(a => classStudents.some(s => s.id === a.student_id) && a.status === "present").length, color: "#059669" },
-                      { label: "Absent", value: attendance.filter(a => classStudents.some(s => s.id === a.student_id) && a.status === "absent").length, color: "#ef4444" },
-                      { label: "Late", value: attendance.filter(a => classStudents.some(s => s.id === a.student_id) && a.status === "late").length, color: "#f59e0b" },
+                      { label: "Present", value: stats.present, color: "#059669" },
+                      { label: "Absent", value: stats.absent, color: "#ef4444" },
+                      { label: "Late", value: stats.late, color: "#f59e0b" },
                     ].map(s => (
                       <div key={s.label} className="text-center">
                         <div className="text-sm font-bold" style={{ color: s.color }}>{s.value}</div>
@@ -395,12 +495,17 @@ export default function AttendanceManager() {
 
               {isExpanded && (
                 <div className="border-t border-border max-h-[70vh] overflow-y-auto">
-                  {classStudents.length === 0 ? (
+                  {isClassLoading || !data ? (
+                    <div className="flex items-center justify-center gap-2 px-5 py-8 text-sm text-muted">
+                      <span className="w-4 h-4 animate-spin rounded-full border-2 border-border border-t-primary" />
+                      Loading attendance…
+                    </div>
+                  ) : classStudents.length === 0 ? (
                     <p className="text-sm text-muted px-5 py-4">No students in this class.</p>
                   ) : (
 
                     classStudents.map((student, si) => {
-                      const studentAtt = getAttendanceForStudent(student.id)
+                      const studentAtt = classAttendance.filter(a => a.student_id === student.id)
                       const present = studentAtt.filter(a => a.status === "present").length
                       const absent = studentAtt.filter(a => a.status === "absent").length
                       const late = studentAtt.filter(a => a.status === "late").length

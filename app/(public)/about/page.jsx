@@ -1,7 +1,5 @@
 import Link from "next/link"
 import { GraduationCap, Award, Heart, Target, Eye, ArrowRight } from "lucide-react"
-import Navbar from "@/components/Navbar"
-import Footer from "@/components/Footer"
 import Leadership from "@/components/home/LeaderShip"
 import ContactCTA from "@/components/home/ContactCTA"
 
@@ -52,12 +50,8 @@ const milestones = [
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-bg">
-      <Navbar />
-
-      <main className="flex-1">
-
-        {/* Hero */}
+    <>
+      {/* Hero */}
         <section className="bg-surface border-b border-border py-10 md:py-20 px-6 md:px-12 relative overflow-hidden">
           <div
             className="absolute inset-0 pointer-events-none opacity-40"
@@ -72,7 +66,7 @@ export default function AboutPage() {
 
               {/* Left — image */}
               <div className="relative row-start-2 lg:row-start-1">
-                <div className="rounded-2xl overflow-hidden shadow-lg aspect-[4/3]">
+                <div className="rounded-md overflow-hidden shadow-lg aspect-[4/3]">
                   <img
                     src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&auto=format&fit=crop"
                     alt="Greenfield Academy"
@@ -258,12 +252,8 @@ export default function AboutPage() {
 
 
 
-        {/* Contact */}
-        <ContactCTA />
-
-      </main>
-
-      <Footer />
-    </div>
+      {/* Contact */}
+      <ContactCTA />
+    </>
   )
 }

@@ -4,8 +4,6 @@ import { useEffect, useState } from "react"
 import { getEvents } from "@/lib/api/public"
 import Link from "next/link"
 import { Calendar, Tag, ArrowRight } from "lucide-react"
-import Navbar from "@/components/Navbar"
-import Footer from "@/components/Footer"
 import Carousel from "@/components/ui/Carousel"
 
 const CATEGORIES = ["All", "Sports", "Academic", "Cultural", "General"]
@@ -42,12 +40,8 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg">
-      <Navbar />
-
-      <main className="flex-1">
-
-        {/* Hero carousel */}
+    <>
+      {/* Hero carousel */}
         <div className="relative">
           {loading ? (
             <div className="w-full bg-surface-2 animate-pulse h-80 md:h-[600px]" />
@@ -108,7 +102,7 @@ export default function EventsPage() {
                 ))}
               </div>
             ) : filtered.length === 0 ? (
-                <div className="card flex flex-col items-center justify-center py-10 md:py-20 gap-3 text-center">
+              <div className="card flex flex-col items-center justify-center py-10 md:py-20 gap-3 text-center">
                 <Tag size={36} className="text-faint" />
                 <p className="text-muted text-sm">No events found in this category.</p>
                 <button
@@ -170,9 +164,6 @@ export default function EventsPage() {
             )}
           </div>
         </section>
-      </main>
-
-      <Footer />
-    </div>
+    </>
   )
 }
