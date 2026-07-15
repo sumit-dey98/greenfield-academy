@@ -348,7 +348,7 @@ export default function ScheduleManager() {
           {periods.map(period => (
             <div
               key={period.id}
-              className={`flex items-start gap-3 px-4 py-2.5 rounded-lg border transition-colors ${period.is_break ? "bg-border border-border" : "bg-bg border-border"}`}
+              className={`flex items-start gap-3 px-4 py-2.5 rounded-sm border transition-colors ${period.is_break ? "bg-border border-border" : "bg-bg border-border"}`}
             >
               {editingPeriod === period.id ? (
                 <div className="flex flex-col xl:flex-row xl:justify-between gap-3 flex-1 min-w-0 ">
@@ -393,10 +393,10 @@ export default function ScheduleManager() {
                     {period.label && !period.is_break && <span className="text-xs text-muted truncate">{period.label}</span>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => openEditPeriod(period)} className="p-1.5 rounded-md hover:bg-surface-2 text-text hover:text-amber-800 transition-colors">
+                    <button onClick={() => openEditPeriod(period)} className="p-1.5 rounded-sm hover:bg-surface-2 text-text hover:text-amber-800 transition-colors">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => handleDeletePeriod(period.id)} className="p-1.5 rounded-md hover:bg-surface-2 text-text hover:text-danger transition-colors">
+                    <button onClick={() => handleDeletePeriod(period.id)} className="p-1.5 rounded-sm hover:bg-surface-2 text-text hover:text-danger transition-colors">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -473,7 +473,7 @@ export default function ScheduleManager() {
                       <td key={day} className="px-2 py-2">
                         {slot ? (
                           <div
-                            className="relative w-full rounded-lg border px-2.5 py-2 group"
+                            className="relative w-full rounded-sm border px-2.5 py-2 group"
                             style={{ background: `${color}10`, borderColor: isActive ? color : `${color}30` }}
                           >
                             {/* Action icons */}
@@ -510,7 +510,7 @@ export default function ScheduleManager() {
                         ) : (
                           <button
                             onClick={(e) => openCell(period.id, day, e.currentTarget)}
-                            className="w-full h-16 rounded-lg border-2 border-dashed border-border hover:border-primary hover:bg-primary-light transition-all duration-150 flex items-center justify-center group"
+                            className="w-full h-16 rounded-sm border-2 border-dashed border-border hover:border-primary hover:bg-primary-light transition-all duration-150 flex items-center justify-center group"
                           >
                             <Plus size={14} className="text-faint group-hover:text-primary transition-colors" />
                           </button>

@@ -134,8 +134,12 @@ export default function DataTable({
           </colgroup>
           <thead>
             <tr>
-              {columns.map(col => (
-                <th key={col.key} className="relative select-none" style={{ width: colWidths[col.key] ?? 150 }}>
+              {columns.map((col, i) => (
+                <th
+                  key={col.key}
+                  className={`relative select-none ${i === 0 ? "rounded-tl-md" : ""} ${i === columns.length - 1 ? "rounded-tr-md" : ""}`}
+                  style={{ width: colWidths[col.key] ?? 150 }}
+                >
                   <div
                     className={`flex items-center gap-1.5 ${col.sortable && !serverMode ? "cursor-pointer hover:text-text" : ""}`}
                     onClick={() => col.sortable && handleSort(col.key)}
@@ -187,17 +191,23 @@ export default function DataTable({
         </table>
       </div>
 
-      {!loading && rowCount > 0 && (
+      {!loading && (
         <div className="flex items-center justify-between px-4 py-3 border-t border-border shrink-0 flex-wrap gap-3 bg-text rounded-b-sm">
           <div className="flex items-center gap-3">
             <span className="text-xs text-surface-2">
-              Showing{" "}
-              <span className="font-medium text-surface">
-                {(page - 1) * currentPageSize + 1}–{Math.min(page * currentPageSize, rowCount)}
-              </span>
-              {" "}of{" "}
-              <span className="font-medium text-surface">{rowCount}</span>
-              {" "}records
+              {rowCount > 0 ? (
+                <>
+                  Showing{" "}
+                  <span className="font-medium text-surface">
+                    {(page - 1) * currentPageSize + 1}–{Math.min(page * currentPageSize, rowCount)}
+                  </span>
+                  {" "}of{" "}
+                  <span className="font-medium text-surface">{rowCount}</span>
+                  {" "}records
+                </>
+              ) : (
+                "Showing 0 of 0 records"
+              )}
             </span>
             <div className="w-20">
               <Select

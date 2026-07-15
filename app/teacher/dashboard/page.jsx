@@ -160,7 +160,7 @@ export default function TeacherDashboard() {
 
       {/* Unmarked attendance alert */}
       {unmarked > 0 && (
-        <div className="flex items-center justify-between gap-4 px-5 py-4 bg-red-100 dark:bg-red-950/30 rounded-lg flex-wrap shadow-card">
+        <div className="flex items-center justify-between gap-4 px-5 py-4 bg-red-100 dark:bg-red-950/30 rounded-md flex-wrap shadow-card">
           <div className="flex items-center gap-3">
             <AlertCircle size={18} className="text-red-600 shrink-0" />
             <p className="text-sm font-medium text-red-500">
@@ -195,7 +195,7 @@ export default function TeacherDashboard() {
           ) : (
             <div className="flex flex-col gap-4">
               {todaySchedule.map((cls, i) => (
-                <div key={cls.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-2 shadow-card">
+                <div key={cls.id} className="flex items-center gap-3 p-3 rounded-sm bg-surface-2 shadow-card">
                   <div className="flex flex-col items-center justify-center w-14 shrink-0">
                     <span className="text-xs font-semibold text-primary">{cls.start_time}</span>
                     <span className="text-xs text-faint">{cls.end_time}</span>
@@ -271,7 +271,7 @@ export default function TeacherDashboard() {
             {notices.map(notice => (
               <div
                 key={notice.id}
-                className="flex flex-col gap-1.5 p-3 rounded-lg bg-surface-2 shadow-card"
+                className="flex flex-col gap-1.5 p-3 rounded-sm bg-surface-2 shadow-card"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className={`badge ${categoryBadge[notice.category] ?? "badge-info"}`}>

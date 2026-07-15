@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { getAdmissionStatus } from "@/lib/api/public"
+import Link from "next/link"
+import { getAdmissionStatus, submitApplication, verifyApplicationAccess } from "@/lib/api/public"
+import { ApiError } from "@/lib/api/client"
 import toast from "react-hot-toast"
 import Input from "@/components/ui/Input"
 import Select from "@/components/ui/Select"
@@ -9,9 +11,11 @@ import DatePicker from "@/components/ui/DatePicker"
 import FileUpload from "@/components/ui/FileUpload"
 import CheckBox from "@/components/ui/CheckBox"
 import Textarea from "@/components/ui/Textarea"
+import Tooltip from "@/components/ui/Tooltip"
+import Turnstile from "@/components/ui/Turnstile"
 import {
   GraduationCap, Users, FileText,
-  CheckCircle, AlertCircle, Lock,
+  CheckCircle, AlertCircle, Lock, ArrowRight,
 } from "lucide-react"
 
 const CLASSES = [
@@ -26,16 +30,20 @@ const CLASSES = [
 const GENDERS = ["Male", "Female", "Other"]
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]
 const RELATIONSHIPS = ["Father", "Mother", "Guardian"]
+const CONTACT_METHODS = [
+  { label: "Email", value: "email" },
+  { label: "Phone", value: "phone" },
+]
 
 const REQUIRED_FIELDS = [
   "studentName",
   "dob",
   "gender",
   "applyingClass",
+  "contactValue",
   "guardianName",
-  "guardianPhone",
-  "guardianEmail",
   "address",
+  "photo",
 ]
 
 const FIELD_LABELS = {
@@ -43,25 +51,63 @@ const FIELD_LABELS = {
   dob: "Date of Birth",
   gender: "Gender",
   applyingClass: "Applying for Class",
+  contactValue: "Contact Email or Phone",
   guardianName: "Guardian Name",
-  guardianPhone: "Guardian Phone",
-  guardianEmail: "Guardian Email",
   address: "Home Address",
+  photo: "Applicant Photo",
+}
+
+// Maps the backend's snake_case field names (from a 422 `errors` array) back to this form's
+// local camelCase state keys, so a server-side validation failure highlights the same input
+// the client-side check would have.
+const BACKEND_FIELD_MAP = {
+  student_name: "studentName",
+  dob: "dob",
+  gender: "gender",
+  applying_class: "applyingClass",
+  blood_group: "bloodGroup",
+  previous_school: "previousSchool",
+  contact_email: "contactValue",
+  contact_phone: "contactValue",
+  guardian_name: "guardianName",
+  guardian_relationship: "relationship",
+  guardian_phone: "guardianPhone",
+  guardian_email: "guardianEmail",
+  guardian_occupation: "occupation",
+  address: "address",
+  medical_conditions: "medicalConditions",
+  extracurricular: "extracurricular",
+  notes: "notes",
+  photo: "photo",
+  captcha_token: "captcha",
+}
+
+function localAccessKey(ref) {
+  return `gfa_admission_access_${ref}`
+}
+
+function formatDateForDB(ddmmyyyy) {
+  if (!ddmmyyyy) return ""
+  const [d, m, y] = ddmmyyyy.split("/")
+  return `${y}-${m}-${d}`
 }
 
 export default function AdmissionPage() {
   const [admissionOpen, setAdmissionOpen] = useState(null)
-  const [form, setForm] = useState({})
+  const [cycleName, setCycleName] = useState(null)
+  const [form, setForm] = useState({ contactMethod: "email" })
   const [errors, setErrors] = useState({})
   const [agreed, setAgreed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState(null)
+  const [captchaToken, setCaptchaToken] = useState(null)
 
   useEffect(() => {
     const fetchStatus = async () => {
       try {
         const data = await getAdmissionStatus()
         setAdmissionOpen(data?.value ?? false)
+        setCycleName(data?.cycle_name || null)
       } catch (err) {
         console.error("Failed to load admission status:", err)
         setAdmissionOpen(false)
@@ -82,18 +128,36 @@ export default function AdmissionPage() {
         newErrors[key] = `${FIELD_LABELS[key]} is required.`
       }
     })
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (form.guardianEmail && !emailRegex.test(form.guardianEmail)) {
-      newErrors.guardianEmail = "Please enter a valid email address."
-    }
-    const phoneRegex = /^[+\d\s\-()]{7,20}$/
-    if (form.guardianPhone && !phoneRegex.test(form.guardianPhone)) {
-      newErrors.guardianPhone = "Please enter a valid phone number."
+    if (form.contactValue) {
+      if (form.contactMethod === "email") {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(form.contactValue)) {
+          newErrors.contactValue = "Please enter a valid email address."
+        }
+      } else {
+        const digits = form.contactValue.replace(/\D/g, "")
+        if (!/^1\d{9}$/.test(digits)) {
+          newErrors.contactValue = "Enter a valid 10-digit Bangladesh mobile number."
+        }
+      }
     }
     if (!agreed) {
       newErrors.agreed = "You must accept the declaration to submit."
     }
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !captchaToken) {
+      newErrors.captcha = "Please complete the verification challenge."
+    }
     return newErrors
+  }
+
+  const cacheAccessToken = (referenceNumber, accessToken, expiresIn) => {
+    if (typeof window === "undefined") return
+    try {
+      localStorage.setItem(localAccessKey(referenceNumber), JSON.stringify({
+        accessToken,
+        expiresAt: Date.now() + expiresIn * 1000,
+      }))
+    } catch { /* localStorage unavailable — tracking page will just re-prompt */ }
   }
 
   const handleSubmit = async (e) => {
@@ -113,23 +177,70 @@ export default function AdmissionPage() {
     setResult(null)
 
     try {
-      const res = await fetch("/api/admission", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json()
-      setResult(data)
-      if (data.success) {
-        toast.success("Application submitted successfully!")
-        setForm({})
-        setAgreed(false)
-        window.scrollTo({ top: 0, behavior: "smooth" })
+      const fd = new FormData()
+      fd.append("student_name", form.studentName ?? "")
+      fd.append("dob", formatDateForDB(form.dob))
+      fd.append("gender", form.gender ?? "")
+      fd.append("applying_class", form.applyingClass ?? "")
+      if (form.bloodGroup) fd.append("blood_group", form.bloodGroup)
+      if (form.previousSchool) fd.append("previous_school", form.previousSchool)
+      fd.append("contact_method", form.contactMethod)
+      if (form.contactMethod === "email") {
+        fd.append("contact_email", form.contactValue ?? "")
       } else {
-        toast.error(data.error || "Submission failed.")
+        fd.append("contact_phone", form.contactValue ?? "")
       }
-    } catch {
-      setResult({ success: false, error: "Network error. Please check your connection." })
+      fd.append("guardian_name", form.guardianName ?? "")
+      if (form.relationship) fd.append("guardian_relationship", form.relationship)
+      if (form.guardianPhone) fd.append("guardian_phone", form.guardianPhone)
+      if (form.guardianEmail) fd.append("guardian_email", form.guardianEmail)
+      if (form.occupation) fd.append("guardian_occupation", form.occupation)
+      fd.append("address", form.address ?? "")
+      if (form.medicalConditions) fd.append("medical_conditions", form.medicalConditions)
+      if (form.extracurricular) fd.append("extracurricular", form.extracurricular)
+      if (form.notes) fd.append("notes", form.notes)
+      fd.append("captcha_token", captchaToken ?? "")
+      fd.append("photo", form.photo)
+      ;(form.documents ?? []).forEach(file => fd.append("documents", file))
+
+      const data = await submitApplication(fd)
+      setResult(data)
+
+      if (data.duplicate) {
+        toast(data.message || "You already have an application in progress.")
+      } else {
+        toast.success("Application submitted successfully!")
+      }
+      setForm({ contactMethod: "email" })
+      setAgreed(false)
+      setCaptchaToken(null)
+      window.scrollTo({ top: 0, behavior: "smooth" })
+
+      // The applicant just proved contact ownership by submitting — verify immediately
+      // in the background so the tracking link works without asking them to re-enter it.
+      try {
+        const verify = await verifyApplicationAccess(data.reference_number, form.contactValue)
+        cacheAccessToken(data.reference_number, verify.access_token, verify.expires_in)
+      } catch { /* tracking page will just prompt for verification on first visit */ }
+    } catch (err) {
+      const message = err instanceof ApiError
+        ? (err.errors?.[0]?.message || err.message)
+        : "Network error. Please check your connection."
+      toast.error(message)
+      setResult({ error: message })
+
+      // Map backend field-level errors back onto the matching local input and scroll to it,
+      // same as a client-side validation failure would.
+      if (err instanceof ApiError && err.errors?.length) {
+        const fieldErrors = {}
+        err.errors.forEach(({ field, message: fieldMessage }) => {
+          const localKey = BACKEND_FIELD_MAP[field] || field
+          fieldErrors[localKey] = fieldMessage
+        })
+        setErrors(prev => ({ ...prev, ...fieldErrors }))
+        const firstKey = Object.keys(fieldErrors)[0]
+        document.getElementById(firstKey)?.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
     } finally {
       setSubmitting(false)
     }
@@ -145,7 +256,7 @@ export default function AdmissionPage() {
           <div className="text-center">
             <div className="inline-flex items-center gap-2 bg-primary-light text-primary px-4 py-1.5 rounded-full text-sm font-semibold mb-4 ring-1 ring-primary">
               <GraduationCap size={13} />
-              Admissions 2026
+              {cycleName || "Admissions"}
             </div>
             <h1 className="text-3xl font-bold text-text mb-2">
               Apply for Admission
@@ -167,7 +278,9 @@ export default function AdmissionPage() {
                   Admissions are open!
                 </p>
                 <p className="text-sm text-green-700 mt-0.5">
-                  Applications are being accepted for the 2025–26 academic year.
+                  {cycleName
+                    ? `Applications are being accepted for ${cycleName}.`
+                    : "Applications are currently being accepted."}
                 </p>
               </div>
             </div>
@@ -187,41 +300,44 @@ export default function AdmissionPage() {
           )}
 
           {/* API error */}
-          {result?.success === false && (
-            <div className="flex items-start gap-3 px-4 py-3 bg-surface border border-danger rounded-lg">
+          {result?.error && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-surface border border-danger rounded-md">
               <AlertCircle size={16} className="text-danger shrink-0 mt-0.5" />
-              <p className="text-sm text-danger">{result.error}</p>
+              <p className="text-sm text-danger leading-none">{result.error}</p>
             </div>
           )}
 
           {/* Success */}
-          {result?.success ? (
+          {result?.reference_number ? (
             <div className="card flex flex-col items-center text-center gap-5 py-12">
               <div className="w-16 h-16 rounded-full bg-primary-light flex items-center justify-center ring-1  ring-surface-2">
                 <CheckCircle size={30} className="text-primary" />
               </div>
               <div>
                 <h3 className="font-bold text-text text-xl mb-2">
-                  Application Submitted!
+                  {result.duplicate ? "Application Already In Progress" : "Application Submitted!"}
                 </h3>
                 <p className="text-muted text-sm leading-relaxed max-w-md">
                   {result.message}
                 </p>
               </div>
-              {result.reference && (
-                <div className="flex items-center gap-2 bg-surface-2 px-5 py-3 rounded-lg">
-                  <span className="text-xs text-muted">Reference number:</span>
-                  <span className="text-sm font-bold text-primary font-mono">
-                    {result.reference}
-                  </span>
-                </div>
-              )}
-              {/* <button
-                onClick={() => setResult(null)}
-                className="btn btn-outline mt-2"
+              <div className="flex items-center gap-2 bg-surface-2 px-5 py-3 rounded-lg">
+                <span className="text-xs text-muted">Reference number:</span>
+                <span className="text-sm font-bold text-primary font-mono">
+                  {result.reference_number}
+                </span>
+              </div>
+              <Link
+                href={`/admission/${result.reference_number}`}
+                className="btn btn-outline gap-2"
               >
-                Submit another application
-              </button> */}
+                View your admission progress <ArrowRight size={16} />
+              </Link>
+              <p className="text-xs text-faint max-w-sm">
+                You can view your admission progress at{" "}
+                <span className="font-mono">/admission/{result.reference_number}</span> anytime —
+                save this link, you&apos;ll need to verify with your contact email/phone each time you visit.
+              </p>
             </div>
           ) : (
 
@@ -321,6 +437,56 @@ export default function AdmissionPage() {
                     />
                   </div>
 
+                  <div id="contactValue" className="sm:col-span-2 flex flex-col sm:flex-row gap-3 sm:items-end">
+                    <div className="w-full sm:w-40">
+                      <Select
+                        label="Primary Contact"
+                        options={CONTACT_METHODS}
+                        value={form.contactMethod ?? "email"}
+                        onChange={val => set("contactMethod", val)}
+                        disabled={isDisabled}
+                        searchable={false}
+                        clearable={false}
+                        menuPlacement="bottom"
+                      />
+                    </div>
+                    <div className="flex-1 flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-text flex items-center gap-1.5">
+                        {form.contactMethod === "phone" ? "Contact Phone" : "Contact Email"}
+                        <span className="text-danger">*</span>
+                        <Tooltip text="Used to track your application status. May be used as a login credential in a future update." />
+                      </label>
+                      {form.contactMethod === "phone" ? (
+                        <div className="flex gap-2 items-start">
+                          <span className="input w-20 flex items-center justify-center text-muted select-none shrink-0">
+                            +880
+                          </span>
+                          <div className="flex-1">
+                            <Input
+                              required
+                              type="tel"
+                              placeholder="1XXXXXXXXX"
+                              value={form.contactValue ?? ""}
+                              onChange={e => set("contactValue", e.target.value.replace(/\D/g, ""))}
+                              error={errors.contactValue}
+                              disabled={isDisabled}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <Input
+                          required
+                          type="email"
+                          placeholder="you@email.com"
+                          value={form.contactValue ?? ""}
+                          onChange={e => set("contactValue", e.target.value)}
+                          error={errors.contactValue}
+                          disabled={isDisabled}
+                        />
+                      )}
+                    </div>
+                  </div>
+
                 </div>
               </div>
 
@@ -358,28 +524,24 @@ export default function AdmissionPage() {
                     />
                   </div>
 
-                  <div id="guardianPhone">
+                  <div>
                     <Input
-                      label="Phone Number"
-                      required
+                      label="Guardian Phone"
                       type="tel"
                       placeholder="+880-XXXX-XXXXXX"
                       value={form.guardianPhone ?? ""}
                       onChange={e => set("guardianPhone", e.target.value)}
-                      error={errors.guardianPhone}
                       disabled={isDisabled}
                     />
                   </div>
 
-                  <div id="guardianEmail">
+                  <div>
                     <Input
-                      label="Email Address"
-                      required
+                      label="Guardian Email"
                       type="email"
                       placeholder="guardian@email.com"
                       value={form.guardianEmail ?? ""}
                       onChange={e => set("guardianEmail", e.target.value)}
-                      error={errors.guardianEmail}
                       disabled={isDisabled}
                     />
                   </div>
@@ -441,6 +603,22 @@ export default function AdmissionPage() {
                 </div>
               </div>
 
+              {/* Photo */}
+              <div id="photo" className="card flex flex-col gap-4">
+                <h2 className="font-semibold text-text flex items-center gap-2 text-base pb-3 border-b border-border">
+                  <FileText size={16} className="text-primary" />
+                  Applicant Photo
+                </h2>
+                <FileUpload
+                  label="Recent Passport-Size Photo"
+                  required
+                  accept=".jpg,.jpeg,.png"
+                  onChange={file => set("photo", file)}
+                  disabled={isDisabled}
+                  error={errors.photo}
+                />
+              </div>
+
               {/* Document Upload */}
               <div className="card flex flex-col gap-4">
                 <h2 className="font-semibold text-text flex items-center gap-2 text-base pb-3 border-b border-border">
@@ -451,9 +629,7 @@ export default function AdmissionPage() {
                   label="Birth Certificate / Previous Report Card"
                   accept=".pdf,.jpg,.jpeg,.png"
                   multiple
-                  maxFiles={3}
-                  maxSize={5 * 1024 * 1024}
-                  hint="PDF, JPG, PNG up to 5MB each · Max 3 files"
+                  maxFiles={4}
                   onChange={files => set("documents", files)}
                   disabled={isDisabled}
                 />
@@ -465,7 +641,6 @@ export default function AdmissionPage() {
                   By submitting this application, I confirm that all information
                   provided is accurate and complete. I understand that any false
                   information may result in cancellation of the application.
-                  This is a demonstration form — no data will be stored or processed.
                 </p>
                 <div id="agreed">
                   <CheckBox
@@ -478,6 +653,13 @@ export default function AdmissionPage() {
                     error={errors.agreed}
                     disabled={isDisabled}
                   />
+                </div>
+                <div id="captcha">
+                  <Turnstile
+                    onVerify={token => { setCaptchaToken(token); setErrors(err => ({ ...err, captcha: null })) }}
+                    onExpire={() => setCaptchaToken(null)}
+                  />
+                  {errors.captcha && <p className="text-xs text-danger mt-1">{errors.captcha}</p>}
                 </div>
               </div>
 

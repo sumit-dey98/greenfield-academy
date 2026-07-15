@@ -10,11 +10,11 @@ const AuthContext = createContext(null)
 const USER_CACHE_KEY = "gfa_user"
 
 const PERMISSIONS = {
-  super_admin: { cms: true, academic: true, users: true },
-  admin: { cms: true, academic: true, users: false },
-  editor: { cms: true, academic: false, users: false },
-  mock_admin: { cms: false, academic: false, users: false },
-  mock_editor: { cms: false, academic: false, users: false },
+  super_admin: { cms: true, academic: true, users: true, admissions: true },
+  admin: { cms: true, academic: true, users: false, admissions: true },
+  editor: { cms: true, academic: false, users: false, admissions: false },
+  mock_admin: { cms: false, academic: false, users: false, admissions: false },
+  mock_editor: { cms: false, academic: false, users: false, admissions: false },
 }
 
 function readCachedUser() {

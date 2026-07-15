@@ -159,7 +159,7 @@ export default function StudentSchedule() {
               <button
                 key={day}
                 onClick={() => setActiveDay(day)}
-                className={`flex flex-col gap-2 p-3 rounded-lg text-left transition-all duration-150 cursor-pointer border
+                className={`flex flex-col gap-2 p-3 rounded-sm text-left transition-all duration-150 cursor-pointer border
     ${isActive ? "border-border bg-primary-light" : "border-border bg-surface hover:bg-surface-2"}`}
               >
                 <div className="flex items-center justify-between">

@@ -187,14 +187,14 @@ export default function NoticesManager() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => openEdit(notice)}
-                  className="p-2 rounded-md transition-colors hover:bg-surface-2 text-muted hover:text-text"
+                  className="p-2 rounded-sm transition-colors hover:bg-surface-2 text-muted hover:text-text"
                 >
                   <Pencil size={15} />
                 </button>
                 <button
                   onClick={() => handleDelete(notice.id)}
                   disabled={deleting === notice.id}
-                  className="p-2 rounded-md transition-colors disabled:opacity-40 hover:bg-surface-2 text-muted hover:text-danger"
+                  className="p-2 rounded-sm transition-colors disabled:opacity-40 hover:bg-surface-2 text-muted hover:text-danger"
                 >
                   {deleting === notice.id
                     ? <span className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-danger/30 border-t-danger block" />

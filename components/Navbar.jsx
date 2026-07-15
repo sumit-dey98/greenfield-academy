@@ -90,7 +90,7 @@ export default function Navbar() {
             </div>
             <button
               onClick={() => setMenuOpen(false)}
-              className="p-1.5 rounded-md hover:bg-surface-2 text-muted hover:text-text transition-colors"
+              className="p-1.5 rounded-sm hover:bg-surface-2 text-muted hover:text-text transition-colors"
             >
               <X size={18} />
             </button>

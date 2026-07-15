@@ -88,7 +88,7 @@ const FileUpload = forwardRef(function FileUpload(
         onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        className={`flex flex-col items-center justify-center gap-2 px-6 py-8 border-2 border-dashed rounded-md transition-all duration-200 cursor-pointer
+        className={`flex flex-col items-center justify-center gap-2 px-6 py-8 border-2 border-dashed rounded-sm transition-all duration-200 cursor-pointer
           ${dragging
             ? "border-primary bg-primary-light"
             : displayError
@@ -127,7 +127,7 @@ const FileUpload = forwardRef(function FileUpload(
           {files.map((file, i) => (
             <div
               key={i}
-              className="flex items-center justify-between px-3 py-2.5 bg-surface border border-border rounded-lg"
+              className="flex items-center justify-between px-3 py-2.5 bg-surface border border-border rounded-sm"
             >
               <div className="flex items-center gap-2 min-w-0">
                 {fileIcon(file)}

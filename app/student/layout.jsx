@@ -104,7 +104,7 @@ export default function StudentLayout({ children }) {
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className={`
-                  flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                  flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium
                   transition-colors duration-150 no-underline
                   ${active
                     ? "bg-sidebar-active text-white"

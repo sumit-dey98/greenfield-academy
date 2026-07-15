@@ -6,7 +6,7 @@ import Link from "next/link"
 import { useAuth } from "@/context/AuthContext"
 import {
   GraduationCap, LayoutDashboard, Users,
-  CalendarCheck, CalendarDays, User, LogOut, Menu, X, ClipboardList
+  CalendarCheck, CalendarDays, User, LogOut, Menu, X, ClipboardList, FileCheck2
 } from "lucide-react"
 import ClientOnly from "@/components/ClientOnly"
 import ThemeToggle from "@/components/ThemeToggle"
@@ -16,6 +16,7 @@ const navItems = [
   { label: "Students", href: "/teacher/students", icon: <Users size={18} /> },
   { label: "Attendance", href: "/teacher/attendance", icon: <CalendarCheck size={18} /> },
   { label: "Grades", href: "/teacher/grades", icon: <ClipboardList size={16} /> },
+  { label: "Admission Grading", href: "/teacher/admission-grading", icon: <FileCheck2 size={16} /> },
   { label: "Schedule", href: "/teacher/schedule", icon: <CalendarDays size={18} /> },
   { label: "Profile", href: "/teacher/profile", icon: <User size={18} /> },
 ]
@@ -99,7 +100,7 @@ export default function TeacherLayout({ children }) {
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className={`
-                  flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                  flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium
                   transition-colors duration-150 no-underline
                   ${active
                     ? "bg-sidebar-active text-white"

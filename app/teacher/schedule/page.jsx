@@ -90,7 +90,7 @@ export default function TeacherSchedule() {
               <button
                 key={day}
                 onClick={() => setActiveDay(day)}
-                className={`flex flex-col gap-2 p-3 rounded-lg border text-left transition-all duration-150 cursor-pointer
+                className={`flex flex-col gap-2 p-3 rounded-sm border text-left transition-all duration-150 cursor-pointer
                   ${isActive
                     ? "border-primary bg-primary-light"
                     : "border-border bg-surface hover:bg-surface-2"

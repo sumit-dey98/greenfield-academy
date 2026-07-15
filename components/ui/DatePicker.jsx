@@ -204,7 +204,7 @@ function RangePicker({ value = {}, onChange, minDate, maxDate }) {
         <div className="flex-1">
           <div className="flex items-center justify-between mb-3 gap-1">
             <button type="button" onClick={() => setViewing(new Date(leftYear, leftMonth - 1, 1))}
-              className="p-1.5 rounded-md hover:bg-surface-2 text-muted hover:text-text transition-colors shrink-0">
+              className="p-1.5 rounded-sm hover:bg-surface-2 text-muted hover:text-text transition-colors shrink-0">
               <ChevronLeft size={15} />
             </button>
             <div className="flex items-center gap-1 flex-1 justify-center">
@@ -249,7 +249,7 @@ function RangePicker({ value = {}, onChange, minDate, maxDate }) {
               </div>
             </div>
             <button type="button" onClick={() => setViewing(new Date(leftYear, leftMonth + 1, 1))}
-              className="p-1.5 rounded-md hover:bg-surface-2 text-muted hover:text-text transition-colors shrink-0">
+              className="p-1.5 rounded-sm hover:bg-surface-2 text-muted hover:text-text transition-colors shrink-0">
               <ChevronRight size={15} />
             </button>
           </div>
@@ -369,7 +369,7 @@ const DatePicker = forwardRef(function DatePicker(
       ref={calendarRef}
       data-datepicker-calendar=""
       style={dropStyle}
-      className="bg-surface border border-border rounded-lg shadow-drop"
+      className="bg-surface border border-border rounded-sm shadow-drop"
     >
       {range ? (
         <RangePicker value={value}

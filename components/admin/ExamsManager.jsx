@@ -199,13 +199,13 @@ export default function ExamsManager() {
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => openEdit(exam)}
-                      className="p-1.5 rounded-md hover:bg-surface-2 text-muted hover:text-text transition-colors"
+                      className="p-1.5 rounded-sm hover:bg-surface-2 text-muted hover:text-text transition-colors"
                     >
                       <Pencil size={14} />
                     </button>
                     <button
                       onClick={() => openConfirmDelete(exam)}
-                      className="p-1.5 rounded-md hover:bg-surface-2 text-muted hover:text-danger transition-colors"
+                      className="p-1.5 rounded-sm hover:bg-surface-2 text-muted hover:text-danger transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>

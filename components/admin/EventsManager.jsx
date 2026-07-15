@@ -236,20 +236,20 @@ export default function EventsManager() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => togglePublish(event)}
-                  className={`p-2 rounded-md transition-colors ${event.published ? "text-warning hover:bg-surface-2" : "text-success hover:bg-surface-2"}`}
+                  className={`p-2 rounded-sm transition-colors ${event.published ? "text-warning hover:bg-surface-2" : "text-success hover:bg-surface-2"}`}
                 >
                   {event.published ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
                 <button
                   onClick={() => openEdit(event)}
-                  className="p-2 rounded-md transition-colors hover:bg-surface-2 text-muted hover:text-text"
+                  className="p-2 rounded-sm transition-colors hover:bg-surface-2 text-muted hover:text-text"
                 >
                   <Pencil size={15} />
                 </button>
                 <button
                   onClick={() => handleDelete(event.id)}
                   disabled={deleting === event.id}
-                  className="p-2 rounded-md transition-colors disabled:opacity-40 hover:bg-surface-2 text-muted hover:text-danger"
+                  className="p-2 rounded-sm transition-colors disabled:opacity-40 hover:bg-surface-2 text-muted hover:text-danger"
                 >
                   {deleting === event.id
                     ? <span className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-danger/30 border-t-danger block" />
@@ -266,7 +266,7 @@ export default function EventsManager() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editing ? "Edit Event" : "New Event"}
-        width="max-w-3xl"
+        width="max-w-5xl"
       >
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

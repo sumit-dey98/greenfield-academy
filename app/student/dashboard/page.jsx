@@ -362,7 +362,7 @@ export default function StudentDashboard() {
           ) : (
             <div className="flex flex-col gap-4">
               {todaySchedule.map((cls, i) => (
-                <div key={cls.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-2 shadow-card">
+                <div key={cls.id} className="flex items-center gap-3 p-3 rounded-sm bg-surface-2 shadow-card">
                   <div className="flex flex-col items-center justify-center w-14 shrink-0">
                     <span className="text-xs font-semibold text-primary">{cls.start_time}</span>
                     <span className="text-xs text-faint">{cls.end_time}</span>

@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext"
 import {
   Shield, LayoutDashboard, Users, BookOpen,
   Bell, Calendar, MessageSquare, Settings,
-  LogOut, Menu, X, ChevronDown, User, CalendarDays, ClipboardList, CalendarCheck, GraduationCap, KeyRound, ScrollText
+  LogOut, Menu, X, ChevronDown, User, CalendarDays, ClipboardList, CalendarCheck, GraduationCap, KeyRound, ScrollText, FileCheck2
 } from "lucide-react"
 import ThemeToggle from "@/components/ThemeToggle"
 
@@ -38,6 +38,11 @@ const navItems = [
       { label: "Events", href: "/superadmin/events", icon: <Calendar size={16} /> },
       { label: "Testimonials", href: "/superadmin/testimonials", icon: <MessageSquare size={16} /> },
     ],
+  },
+  {
+    label: "Admissions",
+    href: "/superadmin/admissions",
+    icon: <FileCheck2 size={18} />,
   },
   {
     label: "Settings",

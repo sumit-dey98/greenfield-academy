@@ -176,24 +176,24 @@ export default function TestimonialsManager() {
               <div className="flex items-center gap-2 mt-auto pt-2 border-t border-border">
                 <button
                   onClick={() => toggleActive(t)}
-                  className={`p-1.5 rounded-md transition-colors ${t.active ? "text-warning hover:bg-surface-2" : "text-success hover:bg-surface-2"}`}
+                  className={`p-1.5 rounded-sm transition-colors ${t.active ? "text-warning hover:bg-surface-2" : "text-success hover:bg-surface-2"}`}
                 >
-                  {t.active ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {t.active ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
                 <button
                   onClick={() => openEdit(t)}
-                  className="p-1.5 rounded-md transition-colors hover:bg-surface-2 text-muted hover:text-text"
+                  className="p-1.5 rounded-sm transition-colors hover:bg-surface-2 text-muted hover:text-text"
                 >
-                  <Pencil size={14} />
+                  <Pencil size={15} />
                 </button>
                 <button
                   onClick={() => handleDelete(t.id)}
                   disabled={deleting === t.id}
-                  className="p-1.5 rounded-md transition-colors disabled:opacity-40 hover:bg-surface-2 text-muted hover:text-danger"
+                  className="p-1.5 rounded-sm transition-colors disabled:opacity-40 hover:bg-surface-2 text-muted hover:text-danger"
                 >
                   {deleting === t.id
                     ? <span className="w-3 h-3 animate-spin rounded-full border-2 border-danger/30 border-t-danger block" />
-                    : <Trash2 size={14} />
+                    : <Trash2 size={15} />
                   }
                 </button>
                 <span className={`flex 2xl:hidden badge border ms-auto ${t.active ? "badge-success" : "badge-warning"}`}>

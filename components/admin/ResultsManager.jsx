@@ -570,13 +570,13 @@ export default function ResultsManager() {
                                           <div className="flex items-center gap-1  transition-opacity duration-150">
                                             <button
                                               onClick={() => openEdit(result)}
-                                              className="p-1.5 rounded-md hover:bg-surface-2 text-faint hover:text-text transition-colors"
+                                              className="p-1.5 rounded-sm hover:bg-surface-2 text-faint hover:text-text transition-colors"
                                             >
                                               <Pencil size={13} />
                                             </button>
                                             <button
                                               onClick={() => openConfirmDelete(result)}
-                                              className="p-1.5 rounded-md hover:bg-surface-2 text-faint hover:text-danger transition-colors"
+                                              className="p-1.5 rounded-sm hover:bg-surface-2 text-faint hover:text-danger transition-colors"
                                             >
                                               <Trash2 size={13} />
                                             </button>
