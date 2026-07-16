@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { listStudents, createStudent, updateStudent, deleteStudent } from "@/lib/api/adminPeople"
+import { listClasses } from "@/lib/api/classes"
 import { useAuth } from "@/context/AuthContext"
 import {
   Plus, Pencil, Trash2, Save,
   CheckCircle, AlertCircle,
 } from "lucide-react"
 import DataTable from "@/components/ui/DataTable"
+import { toLimitOffset } from "@/components/ui/Pagination"
 import SearchBox from "@/components/ui/SearchBox"
 import Select from "@/components/ui/Select"
 import Input from "@/components/ui/Input"
@@ -15,7 +17,7 @@ import DatePicker from "@/components/ui/DatePicker"
 import Modal from "@/components/ui/Modal"
 import ConfirmDialog from "@/components/ui/ConfirmDialog"
 
-const GENDERS = ["Male", "Female", "Other"]
+const GENDERS = ["Male", "Female"]
 
 function formatDateForDisplay(isoDate) {
   if (!isoDate) return ""
@@ -35,6 +37,8 @@ const emptyForm = {
   guardian: "", guardian_phone: "", class_id: "",
 }
 
+const PAGE_SIZE = 20
+
 export default function StudentsManager() {
   const { attemptWrite } = useAuth()
   const [students, setStudents] = useState([])
@@ -42,6 +46,11 @@ export default function StudentsManager() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [classFilter, setClassFilter] = useState("")
+
+  // Server-driven pagination state.
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE_SIZE)
+  const [total, setTotal] = useState(0)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState("add")
@@ -55,17 +64,44 @@ export default function StudentsManager() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
-  const fetchAll = async () => {
-    const [studentsRes, classesRes] = await Promise.all([
-      supabase.from("students").select("*").order("roll", { ascending: true }),
-      supabase.from("classes").select("*").order("grade", { ascending: true }),
-    ])
-    if (studentsRes.data) setStudents(studentsRes.data)
-    if (classesRes.data) setClasses(classesRes.data)
-    setLoading(false)
+  useEffect(() => {
+    listClasses()
+      .then(data => setClasses(data ?? []))
+      .catch(err => console.error("Failed to load classes:", err))
+  }, [])
+
+  // Server-side search is on `name` only; debounce keystrokes so we don't fire a
+  // request per character.
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Reset to page 1 whenever the filters change.
+  useEffect(() => { setPage(1) }, [debouncedSearch, classFilter, pageSize])
+
+  // Fetch the current page from the server whenever paging or filters change.
+  const fetchStudents = async () => {
+    setLoading(true)
+    try {
+      const studentsPage = await listStudents({
+        ...toLimitOffset(page, pageSize),
+        name: debouncedSearch || undefined,
+        class_id: classFilter || undefined,
+      })
+      setStudents(studentsPage?.items ?? [])
+      setTotal(studentsPage?.total ?? 0)
+    } catch (err) {
+      console.error("Failed to load students:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    fetchStudents()
+  }, [page, pageSize, debouncedSearch, classFilter])
 
   const classOptions = [
     { label: "All Classes", value: "" },
@@ -73,15 +109,6 @@ export default function StudentsManager() {
   ]
 
   const classSelectOptions = classes.map(c => ({ label: c.name, value: c.id }))
-
-  const filtered = students.filter(s => {
-    const matchSearch = search === "" ||
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      String(s.roll).includes(search) ||
-      s.email.toLowerCase().includes(search.toLowerCase())
-    const matchClass = classFilter === "" || s.class_id === classFilter
-    return matchSearch && matchClass
-  })
 
   const initials = (name) => name?.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
   const getClassName = (classId) => classes.find(c => c.id === classId)?.name ?? "—"
@@ -137,6 +164,7 @@ export default function StudentsManager() {
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setSaving(true)
 
+    // id and role are server-managed; password is set by the student at first login.
     const payload = {
       name: form.name.trim(),
       email: form.email.trim(),
@@ -148,26 +176,24 @@ export default function StudentsManager() {
       guardian: form.guardian.trim(),
       guardian_phone: form.guardian_phone.trim(),
       class_id: form.class_id,
-      role: "student",
-      avatar: null,
     }
 
-    let error
-    if (modalMode === "edit") {
-      const res = await supabase.from("students").update(payload).eq("id", editingId)
-      error = res.error
-    } else {
-      const id = `std_${Date.now()}`
-      const res = await supabase.from("students").insert({ id, ...payload })
-      error = res.error
+    try {
+      if (modalMode === "edit") {
+        await updateStudent(editingId, payload)
+      } else {
+        await createStudent(payload)
+      }
+      setSaved(true)
+      setModalOpen(false)
+      fetchStudents()
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save student:", err)
+      setErrors({ save: err?.message || "Could not save the student." })
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) { setModalOpen(false); return }
-    setSaved(true)
-    setModalOpen(false)
-    fetchAll()
-    setTimeout(() => setSaved(false), 3000)
   }
 
   const openConfirmDelete = (student) => {
@@ -179,11 +205,16 @@ export default function StudentsManager() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
-    await supabase.from("students").delete().eq("id", deleteTarget.id)
-    setDeleting(false)
-    setConfirmOpen(false)
-    setDeleteTarget(null)
-    fetchAll()
+    try {
+      await deleteStudent(deleteTarget.id)
+    } catch (err) {
+      console.error("Failed to delete student:", err)
+    } finally {
+      setDeleting(false)
+      setConfirmOpen(false)
+      setDeleteTarget(null)
+      fetchStudents()
+    }
   }
 
   const columns = [
@@ -260,7 +291,7 @@ export default function StudentsManager() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="page-title">Students</h1>
-          <p className="page-subtitle">{students.length} students enrolled.</p>
+          <p className="page-subtitle">{total} students enrolled.</p>
         </div>
         <button onClick={openAdd} className="btn btn-primary">
           <Plus size={15} />
@@ -278,7 +309,7 @@ export default function StudentsManager() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
           <SearchBox
-            placeholder="Search by name, roll or email..."
+            placeholder="Search by name..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             onClear={() => setSearch("")}
@@ -296,10 +327,14 @@ export default function StudentsManager() {
       </div>
 
       <DataTable
-        key={`${search}-${classFilter}`}
         columns={columns}
-        data={filtered}
-        pageSize={20}
+        data={students}
+        serverMode
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
         loading={loading}
         emptyMessage="No students found."
       />
@@ -333,7 +368,7 @@ export default function StudentsManager() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border">
+          <div className="flex gap-3 pt-5 border-t border-border">
             <button onClick={handleSave} disabled={saving} className="btn btn-primary disabled:opacity-60">
               {saving
                 ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

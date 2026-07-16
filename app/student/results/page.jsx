@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMyExams, getMyResults } from "@/lib/api/students"
 import { useAuth } from "@/context/AuthContext"
 import { TrendingUp, Award, BookOpen } from "lucide-react"
 import {
@@ -25,49 +25,46 @@ const COLORS = {
 
 export default function StudentResults() {
   const { user } = useAuth()
+  const [exams, setExams] = useState([])
   const [results, setResults] = useState([])
-  const [examRecords, setExamRecords] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [activeExam, setActiveExam] = useState("")
+  const [loadingExams, setLoadingExams] = useState(true)
+  const [loadingResults, setLoadingResults] = useState(false)
+  const [activeExamId, setActiveExamId] = useState("")
   const [chartWidth, setChartWidth] = useState(0);
   const isMobile = chartWidth > 0 && chartWidth < 768;
 
+  // Exams are a tiny, cheap lookup (a handful per year) — load them up front so the
+  // student can pick one, instead of fetching every result across every exam ever taken.
   useEffect(() => {
     if (!user) return
-    const fetch = async () => {
-      const [resultsRes, examsRes] = await Promise.all([
-        supabase
-          .from("results")
-          .select("*, subjects(name, code)")
-          .eq("student_id", user.id)
-          .order("exam", { ascending: true }),
-        supabase
-          .from("exams")
-          .select("name, start_date")
-          .order("start_date", { ascending: false }),
-      ])
-      if (resultsRes.data) setResults(resultsRes.data)
-      if (examsRes.data) setExamRecords(examsRes.data)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const data = await getMyExams()
+        setExams(data ?? [])
+        if (data?.length) setActiveExamId(data[0].id)
+      } catch (err) {
+        console.error("Failed to load exams:", err)
+      } finally {
+        setLoadingExams(false)
+      }
     }
-    fetch()
+    load()
   }, [user])
 
+  // Results are fetched scoped to exactly the selected exam.
   useEffect(() => {
-    if (results.length > 0 && !activeExam) {
-      const latest = [...new Set(results.map(r => r.exam))].sort((a, b) => b.localeCompare(a))[0]
-      setActiveExam(latest)
-    }
-  }, [results])
+    if (!activeExamId) { setResults([]); return }
+    let cancelled = false
+    setLoadingResults(true)
+    getMyResults({ exam_id: activeExamId })
+      .then(data => { if (!cancelled) setResults(data ?? []) })
+      .catch(err => console.error("Failed to load results:", err))
+      .finally(() => { if (!cancelled) setLoadingResults(false) })
+    return () => { cancelled = true }
+  }, [activeExamId])
 
-  const exams = [...new Set(results.map(r => r.exam))]
-    .sort((a, b) => {
-      const aDate = examRecords.find(e => e.name === a)?.start_date ?? ""
-      const bDate = examRecords.find(e => e.name === b)?.start_date ?? ""
-      return new Date(bDate) - new Date(aDate)
-    })
-
-  const filtered = activeExam ? results.filter(r => r.exam === activeExam) : []
+  const loading = loadingExams
+  const filtered = results
 
   const avgMarks = filtered.length
     ? Math.round(filtered.reduce((sum, r) => sum + r.marks, 0) / filtered.length) : 0
@@ -75,7 +72,7 @@ export default function StudentResults() {
   const lowest = filtered.length ? Math.min(...filtered.map(r => r.marks)) : 0
 
   const barData = filtered.map(r => ({
-    name: r.subjects?.name?.split(" ")[0] ?? "—",
+    name: r.subject_name?.split(" ")[0] ?? "—",
     marks: r.marks,
     total: r.total,
   }))
@@ -146,15 +143,15 @@ export default function StudentResults() {
       <div className="flex gap-2 flex-wrap">
         {exams.map(exam => (
           <button
-            key={exam}
-            onClick={() => setActiveExam(exam)}
+            key={exam.id}
+            onClick={() => setActiveExamId(exam.id)}
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-150 cursor-pointer border
-        ${activeExam === exam
+        ${activeExamId === exam.id
                 ? "bg-primary text-white border-primary"
                 : "bg-surface text-muted border-border hover:text-text"
               }`}
           >
-            {exam}
+            {exam.name}
           </button>
         ))}
       </div>
@@ -239,15 +236,19 @@ export default function StudentResults() {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {loadingResults ? (
+              <tr>
+                <td colSpan={6} className="text-center text-muted py-8">Loading...</td>
+              </tr>
+            ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center text-muted py-8">No results found.</td>
               </tr>
             ) : (
               filtered.map(result => (
                 <tr key={result.id}>
-                  <td className="font-medium text-text">{result.subjects?.name}</td>
-                  <td className="text-muted">{result.subjects?.code}</td>
+                  <td className="font-medium text-text">{result.subject_name}</td>
+                  <td className="text-muted">{result.subject_code}</td>
                   <td className="text-muted">{result.exam}</td>
                   <td>
                     <div className="flex items-center gap-2">

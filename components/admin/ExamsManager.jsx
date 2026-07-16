@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { listExams, createExam, updateExam, deleteExam } from "@/lib/api/exams"
 import { useAuth } from "@/context/AuthContext"
 import {
   Plus, Pencil, Trash2, Save,
@@ -53,12 +53,15 @@ export default function ExamsManager() {
   const [deleting, setDeleting] = useState(false)
 
   const fetchExams = async () => {
-    const { data } = await supabase
-      .from("exams")
-      .select("*")
-      .order("start_date", { ascending: true })
-    if (data) setExams(data)
-    setLoading(false)
+    try {
+      const data = await listExams()
+      const sorted = (data ?? []).slice().sort((a, b) => (a.start_date ?? "").localeCompare(b.start_date ?? ""))
+      setExams(sorted)
+    } catch (err) {
+      console.error("Failed to load exams:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchExams() }, [])
@@ -110,22 +113,22 @@ export default function ExamsManager() {
       status: form.status,
     }
 
-    let error
-    if (modalMode === "edit") {
-      const res = await supabase.from("exams").update(payload).eq("id", editingId)
-      error = res.error
-    } else {
-      const id = `exam_${Date.now()}`
-      const res = await supabase.from("exams").insert({ id, ...payload })
-      error = res.error
+    try {
+      if (modalMode === "edit") {
+        await updateExam(editingId, payload)
+      } else {
+        await createExam(payload)
+      }
+      setSaved(true)
+      setModalOpen(false)
+      fetchExams()
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save exam:", err)
+      setErrors({ save: err?.message || "Could not save the exam." })
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) { setModalOpen(false); return }
-    setSaved(true)
-    setModalOpen(false)
-    fetchExams()
-    setTimeout(() => setSaved(false), 3000)
   }
 
   const openConfirmDelete = (exam) => {
@@ -137,11 +140,16 @@ export default function ExamsManager() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
-    await supabase.from("exams").delete().eq("id", deleteTarget.id)
-    setDeleting(false)
-    setConfirmOpen(false)
-    setDeleteTarget(null)
-    fetchExams()
+    try {
+      await deleteExam(deleteTarget.id)
+    } catch (err) {
+      console.error("Failed to delete exam:", err)
+    } finally {
+      setDeleting(false)
+      setConfirmOpen(false)
+      setDeleteTarget(null)
+      fetchExams()
+    }
   }
 
   if (loading) return (
@@ -191,13 +199,13 @@ export default function ExamsManager() {
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => openEdit(exam)}
-                      className="p-1.5 rounded-md hover:bg-surface-2 text-muted hover:text-text transition-colors"
+                      className="p-1.5 rounded-sm hover:bg-surface-2 text-muted hover:text-text transition-colors"
                     >
                       <Pencil size={14} />
                     </button>
                     <button
                       onClick={() => openConfirmDelete(exam)}
-                      className="p-1.5 rounded-md hover:bg-surface-2 text-muted hover:text-danger transition-colors"
+                      className="p-1.5 rounded-sm hover:bg-surface-2 text-muted hover:text-danger transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -269,7 +277,7 @@ export default function ExamsManager() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border">
+          <div className="flex gap-3 pt-5 border-t border-border">
             <button onClick={handleSave} disabled={saving} className="btn btn-primary disabled:opacity-60">
               {saving
                 ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

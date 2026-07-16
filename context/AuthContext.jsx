@@ -1,84 +1,118 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { login as apiLogin, setPassword as apiSetPassword, getMe, fetchProfile, logout as apiLogout } from "@/lib/api/auth"
+import { hasTokens, clearTokens } from "@/lib/api/tokens"
 
 const AuthContext = createContext(null)
 
+// Cached identity+profile for instant paint; revalidated against /auth/me on load.
+const USER_CACHE_KEY = "gfa_user"
+
 const PERMISSIONS = {
-  super_admin: { cms: true, academic: true, users: true },
-  admin: { cms: true, academic: true, users: false },
-  editor: { cms: true, academic: false, users: false },
-  mock_admin: { cms: false, academic: false, users: false },
-  mock_editor: { cms: false, academic: false, users: false },
+  super_admin: { cms: true, academic: true, users: true, admissions: true },
+  admin: { cms: true, academic: true, users: false, admissions: true },
+  editor: { cms: true, academic: false, users: false, admissions: false },
+  mock_admin: { cms: false, academic: false, users: false, admissions: false },
+  mock_editor: { cms: false, academic: false, users: false, admissions: false },
+}
+
+function readCachedUser() {
+  if (typeof window === "undefined") return null
+  try {
+    const stored = localStorage.getItem(USER_CACHE_KEY)
+    return stored ? JSON.parse(stored) : null
+  } catch {
+    return null
+  }
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    if (typeof window === "undefined") return null
-    try {
-      const stored = localStorage.getItem("user")
-      return stored ? JSON.parse(stored) : null
-    } catch {
-      return null
-    }
-  })
-  const [loading, setLoading] = useState(false)
+  const [user, setUser] = useState(readCachedUser)
+  // If tokens exist we must revalidate before trusting the cached user -> start in loading.
+  const [loading, setLoading] = useState(() => typeof window !== "undefined" && hasTokens())
   const [writeBlocked, setWriteBlocked] = useState(false)
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
-  const [superAdminName, setSuperAdminName] = useState(null)
 
-  const fetchSuperAdminName = async (uid) => {
-    const { data } = await supabase
-      .from("superadmin")
-      .select("name")
-      .eq("id", uid)
-      .single()
-    setSuperAdminName(data?.name ?? "Super Admin")
-  }
-
-  useEffect(() => {
-    const check = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        setIsSuperAdmin(true)
-        await fetchSuperAdminName(session.user.id)
-      }
+  const persistUser = useCallback((u) => {
+    if (typeof window !== "undefined") {
+      if (u) localStorage.setItem(USER_CACHE_KEY, JSON.stringify(u))
+      else localStorage.removeItem(USER_CACHE_KEY)
     }
-    check()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session) {
-        setIsSuperAdmin(true)
-        await fetchSuperAdminName(session.user.id)
-      } else {
-        setIsSuperAdmin(false)
-        setSuperAdminName(null)
-      }
-    })
-
-    return () => subscription.unsubscribe()
+    setUser(u)
   }, [])
 
-  const login = (userData) => {
-    localStorage.removeItem("user")
-    localStorage.setItem("user", JSON.stringify(userData))
-    setUser(userData)
+  // Build the full user object from identity (/auth/me) + display profile.
+  const buildUser = useCallback(async () => {
+    const me = await getMe() // { id, user_type, role }
+    const profile = await fetchProfile(me.user_type, me.id)
+    // Identity (user_type/role/id) always wins over profile fields
+    // (e.g. TeacherOut.role is a job title, not the permission role).
+    return { ...profile, id: me.id, user_type: me.user_type, role: me.role }
+  }, [])
+
+  // On mount: if we have tokens, confirm the session and refresh the user.
+  useEffect(() => {
+    let cancelled = false
+    const hydrate = async () => {
+      if (!hasTokens()) {
+        persistUser(null)
+        setLoading(false)
+        return
+      }
+      try {
+        const u = await buildUser()
+        if (!cancelled) persistUser(u)
+      } catch {
+        clearTokens()
+        if (!cancelled) persistUser(null)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    hydrate()
+    return () => { cancelled = true }
+  }, [buildUser, persistUser])
+
+  // The api client fires this when a token is unrecoverable (bad/expired refresh, wrong type).
+  useEffect(() => {
+    const onExpired = () => persistUser(null)
+    window.addEventListener("gfa:auth-expired", onExpired)
+    return () => window.removeEventListener("gfa:auth-expired", onExpired)
+  }, [persistUser])
+
+  // Real login: POST /auth/login, then load identity + profile. Returns the user
+  // so callers can route by user_type/role.
+  const login = async (email, password) => {
+    await apiLogin(email, password)
+    const u = await buildUser()
+    persistUser(u)
+    return u
+  }
+
+  // First-time password set for a null-password account, then log in.
+  const setPassword = async (email, newPassword) => {
+    await apiSetPassword(email, newPassword)
+    const u = await buildUser()
+    persistUser(u)
+    return u
   }
 
   const logout = () => {
-    localStorage.removeItem("user")
-    setUser(null)
+    apiLogout()
+    persistUser(null)
   }
 
   const updateUser = (updates) => {
-    const updated = { ...user, ...updates }
-    localStorage.setItem("user", JSON.stringify(updated))
-    setUser(updated)
+    setUser((prev) => {
+      const updated = { ...prev, ...updates }
+      if (typeof window !== "undefined") localStorage.setItem(USER_CACHE_KEY, JSON.stringify(updated))
+      return updated
+    })
   }
 
+  const isSuperAdmin = user?.role === "super_admin"
+
   const can = (action) => {
-    if (isSuperAdmin) return true
     if (!user?.role) return false
     return PERMISSIONS[user.role]?.[action] ?? false
   }
@@ -101,9 +135,9 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, logout, updateUser,
+      user, loading, login, setPassword, logout, updateUser,
       can, attemptWrite, writeBlocked, clearWriteBlocked,
-      isSuperAdmin, superAdminName,
+      isSuperAdmin, superAdminName: user?.name ?? null,
     }}>
       {children}
     </AuthContext.Provider>

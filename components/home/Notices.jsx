@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Bell, ArrowRight, Calendar } from "lucide-react"
-import { supabase } from "@/lib/supabase"
+import { getNotices } from "@/lib/api/public"
+import Reveal from "@/components/ui/Reveal"
 
 const categoryBadge = {
   Event: "badge-info",
@@ -18,26 +19,26 @@ export default function Notices({onReady}) {
 
   useEffect(() => {
     const fetchNotices = async () => {
-      const { data, error } = await supabase
-        .from("notices")
-        .select("*")
-        .order("date", { ascending: false })
-        .limit(3)
-
-      if (!error) setNotices(data)
-      setLoading(false)
-      onReady?.()
+      try {
+        const page = await getNotices({ limit: 3 })
+        setNotices(page?.items ?? [])
+      } catch (err) {
+        console.error("Failed to load notices:", err)
+      } finally {
+        setLoading(false)
+        onReady?.()
+      }
     }
     fetchNotices()
     onReady?.()
   }, [])
 
   return (
-    <section className="bg-bg py-10 md:py-20 px-6 md:px-12 border-t border-surface-2">
+    <section className="bg-bg py-10 md:py-20 px-6 md:px-12">
       <div className="max-w-6xl mx-auto">
 
         {/* Header */}
-        <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
+        <Reveal className="flex items-end justify-between flex-wrap gap-4 mb-8">
           <div>
             <div className="inline-flex items-center gap-2 bg-primary-light text-primary px-4 py-1.5 rounded-full text-xs font-semibold mb-3 ring-1 ring-primary">
               <Bell size={13} />
@@ -50,7 +51,7 @@ export default function Notices({onReady}) {
           <Link href="/notices" className="btn btn-outline">
             View All <ArrowRight size={15} />
           </Link>
-        </div>
+        </Reveal>
 
         {/* Notices grid */}
         {loading ? (
@@ -82,10 +83,11 @@ export default function Notices({onReady}) {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {notices.map(notice => (
-                <div
+              {notices.map((notice, i) => (
+                <Reveal
                   key={notice.id}
-                  className="card flex flex-col gap-3 cursor-default transition-shadow duration-200 hover:shadow-hover"
+                  delay={i * 0.1}
+                  className="card flex flex-col gap-3 cursor-default"
                 >
                   <div className="flex justify-between items-center">
                     <span className={`badge ${categoryBadge[notice.category] ?? "badge-info"}`}>
@@ -110,7 +112,7 @@ export default function Notices({onReady}) {
                       day: "numeric", month: "short", year: "numeric",
                     })}
                   </div>
-                </div>
+                </Reveal>
               ))}
           </div>
         )}

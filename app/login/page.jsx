@@ -4,9 +4,9 @@ import { Suspense } from "react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
+import { requestPasswordReset } from "@/lib/api/resetRequests"
 import Link from "next/link"
 import { GraduationCap, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight, ArrowLeft } from "lucide-react"
-import { supabase } from "@/lib/supabase"
 import ThemeToggle from "@/components/ThemeToggle"
 
 const ROLE_HINTS = [
@@ -21,8 +21,8 @@ const ROLE_HINTS = [
   {
     role: "teacher",
     label: "Teacher",
-    email: "rafiqul@greenfieldacademy.edu.bd",
-    password: "teacher123",
+    email: "fatema@greenfieldacademy.edu.bd",
+    password: "password123",
     dashboard: "/teacher/dashboard",
     activeClass: "border-primary bg-text text-bg",
   },
@@ -31,15 +31,20 @@ const ROLE_HINTS = [
 function LoginPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { login, logout } = useAuth()
+  const { login, setPassword: setAccountPassword } = useAuth()
 
   const tabParam = searchParams.get("tab")
   const [activeRole, setActiveRole] = useState(null)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  // "login" = normal sign-in; "set" = first-time password setup (account has no password yet)
+  const [mode, setMode] = useState("login")
+  const [requestingReset, setRequestingReset] = useState(false)
+  const [resetMsg, setResetMsg] = useState(null) // { type: "success" | "error", text }
 
   useEffect(() => {
     const match = ROLE_HINTS.find(h => h.role === tabParam)
@@ -52,7 +57,17 @@ function LoginPageInner() {
     }
     setError("")
     setPassword("")
+    setConfirmPassword("")
+    setMode("login")
+    setResetMsg(null)
   }, [tabParam])
+
+  const routeByType = (account) => {
+    if (account.user_type === "student") { router.push("/student/dashboard"); return true }
+    if (account.user_type === "teacher") { router.push("/teacher/dashboard"); return true }
+    setError("This is a staff account. Please use the admin portal to sign in.")
+    return false
+  }
 
   const handleRoleSelect = (hint) => {
     router.push(`/login?tab=${hint.role}`)
@@ -80,42 +95,80 @@ function LoginPageInner() {
     setLoading(true)
 
     try {
-      if (activeRole === "student") {
-        const { data: student } = await supabase
-          .from("students")
-          .select("*")
-          .eq("email", email.trim().toLowerCase())
-          .maybeSingle()
-
-        if (student) {
-          logout() 
-          login({ ...student, user_type: "student" })
-          router.push("/student/dashboard")
-          return
-        }
-        setError("No student account found with this email.")
-        return
-      }
-
-      if (activeRole === "teacher") {
-        const { data: teacher } = await supabase
-          .from("teachers")
-          .select("*")
-          .eq("email", email.trim().toLowerCase())
-          .maybeSingle()
-
-        if (teacher) {
-          logout() 
-          login({ ...teacher, user_type: "teacher" })
-          router.push("/teacher/dashboard")
-          return
-        }
-        setError("No teacher account found with this email.")
-        return
-      }
+      const account = await login(email, password)
+      routeByType(account)
     } catch (err) {
+      if (err?.error_code === "PASSWORD_NOT_SET") {
+        // Account exists but has no password yet — switch to first-time setup.
+        setMode("set")
+        setPassword("")
+        setConfirmPassword("")
+        setError("")
+        return
+      }
       console.error("Login error:", err)
-      setError("Something went wrong. Please try again.")
+      setError(
+        err?.error_code === "INVALID_CREDENTIALS"
+          ? "Invalid email or password."
+          : "Something went wrong. Please try again."
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRequestReset = async () => {
+    setResetMsg(null)
+    setError("")
+    if (!activeRole) { setError("Select Student or Teacher first."); return }
+    if (!email.trim()) { setError("Enter your email, then request a reset."); return }
+
+    setRequestingReset(true)
+    try {
+      await requestPasswordReset(activeRole, email)
+      setResetMsg({
+        type: "success",
+        text: "Reset request sent. Once an admin approves it, sign in with your email to set a new password.",
+      })
+    } catch (err) {
+      setResetMsg({
+        type: "error",
+        text:
+          err?.error_code === "RESET_REQUEST_EXISTS"
+            ? "You already have a pending reset request. Please wait for an admin."
+            : err?.error_code?.endsWith("_NOT_FOUND")
+              ? "No account found with this email for the selected role."
+              : "Could not send the request. Please try again.",
+      })
+    } finally {
+      setRequestingReset(false)
+    }
+  }
+
+  const handleSetPassword = async (e) => {
+    e.preventDefault()
+    setError("")
+
+    const pwdError = validatePassword(password)
+    if (pwdError) { setError(pwdError); return }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.")
+      return
+    }
+
+    setLoading(true)
+    try {
+      const account = await setAccountPassword(email, password)
+      routeByType(account)
+    } catch (err) {
+      console.error("Set-password error:", err)
+      setError(
+        err?.error_code === "PASSWORD_ALREADY_SET"
+          ? "This account already has a password. Try signing in, or ask an admin to reset it."
+          : err?.error_code === "USER_NOT_FOUND"
+            ? "No account found with this email."
+            : "Something went wrong. Please try again."
+      )
     } finally {
       setLoading(false)
     }
@@ -186,8 +239,14 @@ function LoginPageInner() {
           <div className="flex w-full max-w-sm flex-col gap-5">
 
             <div className="mb-1">
-              <h1 className="mb-1.5 text-2xl font-bold text-text">Sign in to your portal</h1>
-              <p className="text-sm text-muted">Select your role to continue.</p>
+              <h1 className="mb-1.5 text-2xl font-bold text-text">
+                {mode === "set" ? "Create your password" : "Sign in to your portal"}
+              </h1>
+              <p className="text-sm text-muted">
+                {mode === "set"
+                  ? "Your account has no password yet. Set one to continue."
+                  : "Select your role to continue."}
+              </p>
             </div>
 
             {/* Tab selector */}
@@ -222,14 +281,14 @@ function LoginPageInner() {
             {activeRole && (
               <>
                 {/* Demo hint */}
-                {activeHint && (
+                {/* {activeHint && (
                   <div className="relative flex items-center gap-2 rounded-md border border-border bg-surface px-3.5 py-2.5 text-xs text-muted">
                     <span>
-                      Demo credentials for{" "}
+                      Sample email for{" "}
                       <strong className="font-semibold text-text">{activeHint.label}</strong>:
                     </span>
-                    <code className="ml-auto rounded bg-primary-light px-2 py-0.5 font-mono text-xs text-primary">
-                      {activeHint.password}
+                    <code className="ml-auto rounded bg-primary-light px-2 py-0.5 font-mono text-xs text-primary truncate max-w-[55%]">
+                      {activeHint.email}
                     </code>
                     <div className="relative group">
                       <button
@@ -240,16 +299,17 @@ function LoginPageInner() {
                       </button>
                       <div className="absolute bottom-full right-0 mb-2 w-64 rounded-md border border-border bg-surface shadow-lg px-3 py-2.5 text-xs text-muted leading-relaxed opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-50">
                         <p>
-                          This is a <strong className="text-text font-semibold">demo login</strong> — no real authentication.
-                          Enter any email that exists in the database. The password only needs to pass a basic format check (8+ chars, letters & numbers).
+                          Sign in with your <strong className="text-text font-semibold">portal credentials</strong>.
+                          Authentication is handled by the backend — enter the account's email and password
+                          (min 8 characters, with letters &amp; numbers).
                         </p>
                         <div className="absolute -bottom-1.5 right-2 w-2.5 h-2.5 rotate-45 border-b border-r border-border bg-surface" />
                       </div>
                     </div>
                   </div>
-                )}
-
-                <form onSubmit={handleLogin} noValidate className="card flex flex-col gap-4">
+                )} */}
+        
+                <form onSubmit={mode === "set" ? handleSetPassword : handleLogin} noValidate className="card flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="login-email" className="text-xs font-semibold text-text">
                       Email address
@@ -264,24 +324,25 @@ function LoginPageInner() {
                         onChange={(e) => setEmail(e.target.value)}
                         autoComplete="email"
                         required
-                        className="input pl-9"
+                        readOnly={mode === "set"}
+                        className={`input pl-9 ${mode === "set" ? "opacity-70 cursor-not-allowed" : ""}`}
                       />
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="login-password" className="text-xs font-semibold text-text">
-                      Password
+                      {mode === "set" ? "New password" : "Password"}
                     </label>
                     <div className="relative flex items-center">
                       <Lock size={14} className="pointer-events-none absolute left-3 text-faint" />
                       <input
                         id="login-password"
                         type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
+                        placeholder={mode === "set" ? "Create a password" : "Enter your password"}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="current-password"
+                        autoComplete={mode === "set" ? "new-password" : "current-password"}
                         required
                         className="input pl-9 pr-10 appearance-none"
                       />
@@ -294,7 +355,31 @@ function LoginPageInner() {
                         {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>
                     </div>
+                    {mode === "set" && (
+                      <p className="text-xs text-faint">At least 8 characters, with letters and numbers.</p>
+                    )}
                   </div>
+
+                  {mode === "set" && (
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="login-confirm" className="text-xs font-semibold text-text">
+                        Confirm password
+                      </label>
+                      <div className="relative flex items-center">
+                        <Lock size={14} className="pointer-events-none absolute left-3 text-faint" />
+                        <input
+                          id="login-confirm"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Re-enter your password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          autoComplete="new-password"
+                          required
+                          className="input pl-9 appearance-none"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {error && (
                     <div role="alert" className="flex items-center gap-2 rounded-md border border-danger bg-red-50 dark:bg-red-950/30 px-3.5 py-2.5 text-xs font-medium text-danger">
@@ -310,10 +395,46 @@ function LoginPageInner() {
                   >
                     {loading ? (
                       <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    ) : mode === "set" ? (
+                      <>Set Password &amp; Continue <ArrowRight size={14} strokeWidth={2.5} /></>
                     ) : (
                       <>Sign In <ArrowRight size={14} strokeWidth={2.5} /></>
                     )}
                   </button>
+
+                  {mode === "set" && (
+                    <button
+                      type="button"
+                      onClick={() => { setMode("login"); setError(""); setPassword(""); setConfirmPassword("") }}
+                      className="text-xs font-medium text-muted hover:text-text transition-colors"
+                    >
+                      Back to sign in
+                    </button>
+                  )}
+
+                  {mode === "login" && (
+                    <button
+                      type="button"
+                      onClick={handleRequestReset}
+                      disabled={requestingReset}
+                      className="text-xs font-medium text-primary hover:underline transition-colors disabled:opacity-60"
+                    >
+                      {requestingReset ? "Sending request..." : "Forgot password? Request a reset"}
+                    </button>
+                  )}
+
+                  {resetMsg && (
+                    <div
+                      className={`flex items-start gap-2 rounded-md px-3.5 py-2.5 text-xs font-medium ${
+                        resetMsg.type === "success"
+                          ? "border border-success bg-primary-light text-success"
+                          : "border border-danger bg-red-50 dark:bg-red-950/30 text-danger"
+                      }`}
+                    >
+                      <AlertCircle size={14} className="shrink-0 mt-px" />
+                      {resetMsg.text}
+                    </div>
+                  )}
                 </form>
               </>
             )}

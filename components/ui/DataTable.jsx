@@ -1,17 +1,10 @@
 'use client'
 
-import { useState, useRef, useCallback } from "react"
-import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight } from "lucide-react"
-import Select from "@/components/ui/Select"
+import { useState, useRef } from "react"
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import Pagination from "@/components/ui/Pagination"
 
 const MIN_COL_WIDTH = 60
-
-const PAGE_SIZE_OPTIONS = [
-  { label: "10", value: "10" },
-  { label: "20", value: "20" },
-  { label: "50", value: "50" },
-  { label: "100", value: "100" },
-]
 
 export default function DataTable({
   columns = [],
@@ -19,44 +12,70 @@ export default function DataTable({
   pageSize = 10,
   loading = false,
   emptyMessage = "No records found.",
+  // --- Server-driven pagination (optional) ---
+  serverMode = false,
+  total = 0,
+  page: serverPage = 1,
+  onPageChange,
+  onPageSizeChange,
 }) {
   const [sortKey, setSortKey] = useState(null)
   const [sortDir, setSortDir] = useState("asc")
-  const [page, setPage] = useState(1)
+  const [clientPage, setClientPage] = useState(1)
   const [currentPageSize, setCurrentPageSize] = useState(pageSize)
   const [colWidths, setColWidths] = useState(() =>
     Object.fromEntries(columns.map(c => [c.key, c.width ?? 150]))
   )
   const resizing = useRef(null)
 
+  const page = serverMode ? serverPage : clientPage
+  const setPage = serverMode
+    ? (p) => onPageChange?.(typeof p === "function" ? p(page) : p)
+    : setClientPage
+
   const handleSort = (key) => {
-    if (!key) return
+    if (serverMode || !key) return
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc")
     else { setSortKey(key); setSortDir("asc") }
     setPage(1)
   }
 
-  const sorted = [...data].sort((a, b) => {
-    if (!sortKey) return 0
-    const av = a[sortKey] ?? ""
-    const bv = b[sortKey] ?? ""
-    if (av === bv) return 0
-    const result = av > bv ? 1 : -1
-    return sortDir === "asc" ? result : -result
-  })
+  const sorted = serverMode
+    ? data
+    : [...data].sort((a, b) => {
+        if (!sortKey) return 0
+        const av = a[sortKey] ?? ""
+        const bv = b[sortKey] ?? ""
+        if (av === bv) return 0
+        const result = av > bv ? 1 : -1
+        return sortDir === "asc" ? result : -result
+      })
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / currentPageSize))
-  const paginated = sorted.slice((page - 1) * currentPageSize, page * currentPageSize)
+  // In server mode `total` is the full row count; `sorted` is just the current page.
+  const rowCount = serverMode ? total : sorted.length
+  const paginated = serverMode
+    ? sorted
+    : sorted.slice((page - 1) * currentPageSize, page * currentPageSize)
 
-  const handleResizeStart = useCallback((e, key) => {
+  const handlePageSizeChange = (size) => {
+    setCurrentPageSize(size)
+    setPage(1)
+    if (serverMode) onPageSizeChange?.(size)
+  }
+
+  const handleResizeStart = (e, key) => {
     e.preventDefault()
     const startX = e.clientX ?? e.touches?.[0]?.clientX
-    const startWidth = colWidths[key] ?? 150
+    // Read the starting width from within the updater so this handler doesn't need to
+    // close over `colWidths` (which lets the React Compiler optimize the component).
+    let startWidth = null
 
     const onMove = (e) => {
       const clientX = e.clientX ?? e.touches?.[0]?.clientX
-      const newWidth = Math.max(MIN_COL_WIDTH, startWidth + clientX - startX)
-      setColWidths(prev => ({ ...prev, [key]: newWidth }))
+      setColWidths(prev => {
+        if (startWidth === null) startWidth = prev[key] ?? 150
+        return { ...prev, [key]: Math.max(MIN_COL_WIDTH, startWidth + clientX - startX) }
+      })
     }
 
     const onUp = () => {
@@ -72,7 +91,7 @@ export default function DataTable({
     document.addEventListener("mouseup", onUp)
     document.addEventListener("touchmove", onMove, { passive: false })
     document.addEventListener("touchend", onUp)
-  }, [colWidths])
+  }
 
   const skeletonRows = Array.from({ length: 6 })
 
@@ -82,14 +101,6 @@ export default function DataTable({
       ? <ChevronUp size={13} className="text-primary" />
       : <ChevronDown size={13} className="text-primary" />
   }
-
-  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
-    .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-    .reduce((acc, p, idx, arr) => {
-      if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...")
-      acc.push(p)
-      return acc
-    }, [])
 
   return (
     <div className="p-0 flex flex-col table-wrapper">
@@ -102,14 +113,18 @@ export default function DataTable({
           </colgroup>
           <thead>
             <tr>
-              {columns.map(col => (
-                <th key={col.key} className="relative select-none" style={{ width: colWidths[col.key] ?? 150 }}>
+              {columns.map((col, i) => (
+                <th
+                  key={col.key}
+                  className={`relative select-none ${i === 0 ? "rounded-tl-md" : ""} ${i === columns.length - 1 ? "rounded-tr-md" : ""}`}
+                  style={{ width: colWidths[col.key] ?? 150 }}
+                >
                   <div
-                    className={`flex items-center gap-1.5 ${col.sortable ? "cursor-pointer hover:text-text" : ""}`}
+                    className={`flex items-center gap-1.5 ${col.sortable && !serverMode ? "cursor-pointer hover:text-text" : ""}`}
                     onClick={() => col.sortable && handleSort(col.key)}
                   >
                     <span className="truncate">{col.label}</span>
-                    {col.sortable && <SortIcon colKey={col.key} />}
+                    {col.sortable && !serverMode && <SortIcon colKey={col.key} />}
                   </div>
                   <div
                     className="absolute right-0 top-0 h-full w-4 flex items-center justify-center cursor-col-resize group z-10"
@@ -155,60 +170,15 @@ export default function DataTable({
         </table>
       </div>
 
-      {!loading && sorted.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border shrink-0 flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted">
-              Showing{" "}
-              <span className="font-medium text-text">
-                {(page - 1) * currentPageSize + 1}–{Math.min(page * currentPageSize, sorted.length)}
-              </span>
-              {" "}of{" "}
-              <span className="font-medium text-text">{sorted.length}</span>
-              {" "}records
-            </span>
-            <div className="w-20">
-              <Select
-                options={PAGE_SIZE_OPTIONS}
-                value={String(currentPageSize)}
-                onChange={(v) => { setCurrentPageSize(Number(v)); setPage(1) }}
-                searchable={false}
-                clearable={false}
-                className="h-8"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 flex-wrap">
-            <button onClick={() => setPage(1)} disabled={page === 1}
-              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              <ChevronsLeft size={15} />
-            </button>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              <ChevronLeft size={15} />
-            </button>
-            {pageNumbers.map((p, i) =>
-              p === "..." ? (
-                <span key={`ellipsis-${i}`} className="px-1 text-xs text-faint">…</span>
-              ) : (
-                <button key={p} onClick={() => setPage(p)}
-                  className={`p-1 h-6 w-6 flex items-center justify-center rounded text-xs border transition-colors
-                    ${page === p ? "bg-primary text-white border-primary" : "border-border bg-surface text-muted hover:text-text"}`}>
-                  {p}
-                </button>
-              )
-            )}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              <ChevronRight size={15} />
-            </button>
-            <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
-              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              <ChevronsRight size={15} />
-            </button>
-          </div>
-        </div>
+      {!loading && (
+        <Pagination
+          page={page}
+          pageSize={currentPageSize}
+          total={rowCount}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          className="border-t border-border shrink-0 bg-text rounded-b-sm"
+        />
       )}
     </div>
   )

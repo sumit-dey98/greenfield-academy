@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { listNotices, createNotice, updateNotice, deleteNotice } from "@/lib/api/notices"
 import { useAuth } from "@/context/AuthContext"
 import { Bell, Plus, Pencil, Trash2, X, Save, AlertCircle } from "lucide-react"
 import Input from "@/components/ui/Input"
@@ -10,11 +10,12 @@ import Select from "@/components/ui/Select"
 import DatePicker from "@/components/ui/DatePicker"
 import Modal from "../ui/Modal"
 
-const CATEGORIES = ["General", "Exam", "Event", "Meeting", "Holiday"]
+// Must match the backend NoticeCategory enum.
+const CATEGORIES = ["General", "Event", "Exam", "Academic", "Holiday", "Administrative"]
 
 const emptyForm = {
   title: "", content: "", category: "General",
-  priority: "normal", date: "", expires: "",
+  priority: "medium", date: "", expires: "",
 }
 
 function formatDateForDB(ddmmyyyy) {
@@ -31,11 +32,13 @@ function formatDateForDisplay(isoDate) {
 
 const categoryBadge = {
   Event: "badge-info", Exam: "badge-danger",
-  General: "badge-success", Meeting: "badge-warning", Holiday: "badge-info",
+  General: "badge-success", Academic: "badge-warning",
+  Holiday: "badge-info", Administrative: "badge-warning",
 }
 
 export default function NoticesManager() {
   const [notices, setNotices] = useState([])
+  const [totalNotices, setTotalNotices] = useState(0)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
@@ -43,15 +46,21 @@ export default function NoticesManager() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const { user, attemptWrite } = useAuth()
+  const { attemptWrite } = useAuth()
 
   const fetchNotices = async () => {
-    const { data } = await supabase
-      .from("notices")
-      .select("*")
-      .order("date", { ascending: false })
-    if (data) setNotices(data)
-    setLoading(false)
+    try {
+      const page = await listNotices({ limit: 200 })
+      const items = (page?.items ?? [])
+        .slice()
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+      setNotices(items)
+      setTotalNotices(page?.total ?? items.length)
+    } catch (err) {
+      console.error("Failed to load notices:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchNotices() }, [])
@@ -97,6 +106,7 @@ export default function NoticesManager() {
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setSaving(true)
 
+    // author_id and id are set server-side — don't send them.
     const payload = {
       title: form.title.trim(),
       content: form.content.trim(),
@@ -104,32 +114,35 @@ export default function NoticesManager() {
       priority: form.priority,
       date: formatDateForDB(form.date),
       expires: formatDateForDB(form.expires) ?? null,
-      author_id: user?.id,
     }
 
-    let error
-    if (editing) {
-      const res = await supabase.from("notices").update(payload).eq("id", editing)
-      error = res.error
-    } else {
-      const id = `not_${Date.now()}`
-      const res = await supabase.from("notices").insert({ id, ...payload })
-      error = res.error
+    try {
+      if (editing) {
+        await updateNotice(editing, payload)
+      } else {
+        await createNotice(payload)
+      }
+      setModalOpen(false)
+      fetchNotices()
+    } catch (err) {
+      console.error("Failed to save notice:", err)
+      setErrors({ save: err?.message || "Could not save the notice." })
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) return
-    setModalOpen(false)
-    fetchNotices()
   }
 
   const handleDelete = async (id) => {
     if (!attemptWrite("cms")) return
     setDeleting(id)
-    const { error } = await supabase.from("notices").delete().eq("id", id)
-    setDeleting(null)
-    if (error) return
-    fetchNotices()
+    try {
+      await deleteNotice(id)
+      fetchNotices()
+    } catch (err) {
+      console.error("Failed to delete notice:", err)
+    } finally {
+      setDeleting(null)
+    }
   }
 
   return (
@@ -138,7 +151,7 @@ export default function NoticesManager() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="page-title">Notices</h1>
-          <p className="page-subtitle">{notices.length} notices published.</p>
+          <p className="page-subtitle">{totalNotices} notices published.</p>
         </div>
         <button onClick={openCreate} className="btn btn-primary">
           <Plus size={15} />
@@ -174,14 +187,14 @@ export default function NoticesManager() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => openEdit(notice)}
-                  className="p-2 rounded-md transition-colors hover:bg-surface-2 text-muted hover:text-text"
+                  className="p-2 rounded-sm transition-colors hover:bg-surface-2 text-muted hover:text-text"
                 >
                   <Pencil size={15} />
                 </button>
                 <button
                   onClick={() => handleDelete(notice.id)}
                   disabled={deleting === notice.id}
-                  className="p-2 rounded-md transition-colors disabled:opacity-40 hover:bg-surface-2 text-muted hover:text-danger"
+                  className="p-2 rounded-sm transition-colors disabled:opacity-40 hover:bg-surface-2 text-muted hover:text-danger"
                 >
                   {deleting === notice.id
                     ? <span className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-danger/30 border-t-danger block" />
@@ -212,7 +225,8 @@ export default function NoticesManager() {
             <Select
               label="Priority"
               options={[
-                { label: "Normal", value: "normal" },
+                { label: "Low", value: "low" },
+                { label: "Medium", value: "medium" },
                 { label: "High / Urgent", value: "high" },
               ]}
               value={form.priority}
@@ -223,13 +237,18 @@ export default function NoticesManager() {
             <DatePicker label="Expires" value={form.expires} onChange={v => set("expires", v)} hint="Leave blank for no expiry" />
           </div>
 
-          {Object.keys(errors).length > 0 && (
+          {errors.save && (
+            <div className="flex items-center gap-2 text-xs text-danger">
+              <AlertCircle size={13} /> {errors.save}
+            </div>
+          )}
+          {Object.keys(errors).filter(k => k !== "save").length > 0 && (
             <div className="flex items-center gap-2 text-xs text-danger">
               <AlertCircle size={13} /> Please fix the errors above.
             </div>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border">
+          <div className="flex gap-3 pt-5 border-t border-border">
             <button onClick={handleSave} disabled={saving} className="btn btn-primary disabled:opacity-60">
               {saving
                 ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

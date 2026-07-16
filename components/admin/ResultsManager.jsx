@@ -1,7 +1,12 @@
 'use client'
 
 import { useEffect, useState, useCallback } from "react"
-import { supabase } from "@/lib/supabase"
+import { listResults, upsertResult, deleteResult } from "@/lib/api/results"
+import { listClasses } from "@/lib/api/classes"
+import { listSubjects } from "@/lib/api/subjects"
+import { listExams } from "@/lib/api/exams"
+import { listStudents } from "@/lib/api/adminPeople"
+import { listCounts } from "@/lib/api/counts"
 import { useAuth } from "@/context/AuthContext"
 import {
   Plus, Pencil, Trash2,
@@ -24,14 +29,33 @@ const statusBadge = {
   ended: "badge-warning",
 }
 
+// Fetch every student of one class (a class roster is small, but page through in case
+// it somehow exceeds the per-request cap).
+async function fetchClassStudents(classId) {
+  const out = []
+  let offset = 0
+  const limit = 200
+  for (;;) {
+    const page = await listStudents({ class_id: classId, limit, offset })
+    const items = page?.items ?? []
+    out.push(...items)
+    if (items.length < limit || out.length >= (page?.total ?? out.length)) break
+    offset += limit
+  }
+  return out
+}
+
 export default function ResultsManager() {
   const { attemptWrite } = useAuth()
 
   // Base data
   const [classes, setClasses] = useState([])
-  const [students, setStudents] = useState([])
   const [subjects, setSubjects] = useState([])
   const [exams, setExams] = useState([])
+
+  // Per-class rosters, fetched lazily and cached by class id — replaces one global
+  // school-wide student fetch with small per-class fetches only when actually needed.
+  const [classStudents, setClassStudents] = useState({})
 
   // Filters
   const [classFilter, setClassFilter] = useState("")
@@ -39,6 +63,10 @@ export default function ResultsManager() {
 
   // Lazy results cache: { [classId_examId]: result[] }
   const [resultsCache, setResultsCache] = useState({})
+
+  // entry_count/marks_sum per class for the selected exam, from the pre-aggregated
+  // /admin/counts endpoint — one call drives every card's summary.
+  const [examCounts, setExamCounts] = useState({})
 
   // Total count for subtitle (filtered by exam)
   const [totalCount, setTotalCount] = useState(0)
@@ -71,73 +99,55 @@ export default function ResultsManager() {
   // ── Initial load ──────────────────────────────────────────
   useEffect(() => {
     const init = async () => {
-      const [classesRes, studentsRes, subjectsRes, examsRes] = await Promise.all([
-        supabase.from("classes").select("*").order("grade", { ascending: true }),
-        supabase.from("students").select("id, name, roll, class_id").order("roll", { ascending: true }),
-        supabase.from("subjects").select("*").order("name", { ascending: true }),
-        supabase.from("exams").select("*").order("start_date", { ascending: false }),
-      ])
-
-      const classesData = classesRes.data ?? []
-      const studentsData = studentsRes.data ?? []
-      const subjectsData = subjectsRes.data ?? []
-      const examsData = examsRes.data ?? []
-
-      setClasses(classesData)
-      setStudents(studentsData)
-      setSubjects(subjectsData)
-      setExams(examsData)
-
-      // Find latest exam with results
-      if (examsData.length > 0) {
-        const { data: examCounts } = await supabase
-          .from("results")
-          .select("exam_id")
-          .in("exam_id", examsData.map(e => e.id))
-
-        const examIdsWithResults = new Set((examCounts ?? []).map(r => r.exam_id))
-        const latestExam = examsData.find(e => examIdsWithResults.has(e.id))
-        if (latestExam) setExamFilter(latestExam.id)
+      try {
+        const [classesData, subjectsData, examsData] = await Promise.all([
+          listClasses(),
+          listSubjects(),
+          listExams(),
+        ])
+        const examsSorted = (examsData ?? []).slice().sort((a, b) => (b.start_date ?? "").localeCompare(a.start_date ?? ""))
+        setClasses(classesData ?? [])
+        setSubjects(subjectsData ?? [])
+        setExams(examsSorted)
+        if (examsSorted[0]) setExamFilter(examsSorted[0].id)
+      } catch (err) {
+        console.error("Failed to load results data:", err)
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
     init()
   }, [])
 
-  // ── Total count for subtitle ──────────────────────────────
-  useEffect(() => {
-    if (!examFilter) { setTotalCount(0); return }
-    const fetchCount = async () => {
-      const { count } = await supabase
-        .from("results")
-        .select("*", { count: "exact", head: true })
-        .eq("exam_id", examFilter)
-      setTotalCount(count ?? 0)
+  // ── Entry counts + marks sums per class for the selected exam, in one call ──
+  // Drives both the class-card summaries and the total-entries subtitle, without
+  // fetching every result row or every student up front.
+  const loadExamCounts = async () => {
+    if (!examFilter) { setExamCounts({}); setTotalCount(0); return }
+    try {
+      const page = await listCounts({ scope_type: "class", period_type: "exam", period_key: examFilter, limit: 200 })
+      const byClass = {}
+      let total = 0
+      ;(page?.items ?? []).forEach(r => {
+        if (r.subject_id) return // only the all-subjects rollup rows (subject_id null) here
+        const bucket = byClass[r.scope_id] ??= { entry_count: 0, marks_sum: 0 }
+        if (r.metric === "results_entry_count") { bucket.entry_count = r.value; total += r.value }
+        if (r.metric === "results_marks_sum") bucket.marks_sum = r.value
+      })
+      setExamCounts(byClass)
+      setTotalCount(total)
+    } catch (err) {
+      console.error("Failed to load result counts:", err)
     }
-    fetchCount()
+  }
+
+  useEffect(() => {
+    loadExamCounts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examFilter])
 
-  // ── Exams that have results ───────────────────────────────
-  const [examsWithResults, setExamsWithResults] = useState([])
-  useEffect(() => {
-    if (exams.length === 0) return
-    const fetchExamsWithResults = async () => {
-      const { data } = await supabase
-        .from("results")
-        .select("exam_id")
-        .in("exam_id", exams.map(e => e.id))
-      const ids = new Set((data ?? []).map(r => r.exam_id))
-      setExamsWithResults(exams.filter(e => ids.has(e.id)))
-    }
-    fetchExamsWithResults()
-  }, [exams])
-
-  const examFilterOptions = examsWithResults.map(e => ({
-    label: e.name,
-    value: e.id,
-  }))
-
+  // Exam filter shows all exams (the API returns totals per exam directly).
+  const examFilterOptions = exams.map(e => ({ label: e.name, value: e.id }))
   const examOptions = exams.map(e => ({ label: e.name, value: e.id }))
 
   // ── Lazy load results for a class ─────────────────────────
@@ -147,34 +157,24 @@ export default function ResultsManager() {
     if (resultsCache[cacheKey]) return resultsCache[cacheKey]
 
     setModalResultsLoading(true)
-    const classStudentIds = students
-      .filter(s => s.class_id === cls.id)
-      .map(s => s.id)
-
-    if (classStudentIds.length === 0) {
-      setModalResultsLoading(false)
+    try {
+      const page = await listResults({ class_id: cls.id, exam_id: examFilter, limit: 2000 })
+      const results = page?.items ?? []
+      setResultsCache(prev => ({ ...prev, [cacheKey]: results }))
+      return results
+    } catch (err) {
+      console.error("Failed to load results:", err)
       return []
+    } finally {
+      setModalResultsLoading(false)
     }
-
-    const { data } = await supabase
-      .from("results")
-      .select("*, exam_id, subjects(name, code), exams(name, status)")
-      .in("student_id", classStudentIds)
-      .eq("exam_id", examFilter)
-      .order("student_id", { ascending: true })
-      .range(0, 9999)
-
-    const results = data ?? []
-    setResultsCache(prev => ({ ...prev, [cacheKey]: results }))
-    setModalResultsLoading(false)
-    return results
-  }, [examFilter, students, resultsCache])
+  }, [examFilter, resultsCache])
 
   const openClassModal = async (cls) => {
     setSelectedClass(cls)
     setExpandedStudent(null)
     setSearch("")
-    const results = await loadResultsForClass(cls)
+    const [results] = await Promise.all([loadResultsForClass(cls), loadClassStudents(cls.id)])
     setModalResults(results)
     setClassModalOpen(true)
   }
@@ -184,34 +184,34 @@ export default function ResultsManager() {
     if (!selectedClass || !examFilter) return
     const cacheKey = `${selectedClass.id}_${examFilter}`
     setModalResultsLoading(true)
-    const classStudentIds = students
-      .filter(s => s.class_id === selectedClass.id)
-      .map(s => s.id)
-    const { data } = await supabase
-      .from("results")
-      .select("*, exam_id, subjects(name, code), exams(name, status)")
-      .in("student_id", classStudentIds)
-      .eq("exam_id", examFilter)
-      .order("student_id", { ascending: true })
-    const results = data ?? []
-    setResultsCache(prev => ({ ...prev, [cacheKey]: results }))
-    setModalResults(results)
-    setModalResultsLoading(false)
-
-    // Refresh total count
-    const { count } = await supabase
-      .from("results")
-      .select("*", { count: "exact", head: true })
-      .eq("exam_id", examFilter)
-    setTotalCount(count ?? 0)
+    try {
+      const page = await listResults({ class_id: selectedClass.id, exam_id: examFilter, limit: 2000 })
+      const results = page?.items ?? []
+      setResultsCache(prev => ({ ...prev, [cacheKey]: results }))
+      setModalResults(results)
+      await loadExamCounts() // the counts backing the cards/subtitle just changed
+    } catch (err) {
+      console.error("Failed to refresh results:", err)
+    } finally {
+      setModalResultsLoading(false)
+    }
   }
 
-  const getStudentsForClass = (classId) => students.filter(s => s.class_id === classId)
+  // A class's roster, fetched lazily and cached the first time it's needed
+  // (the class-modal roster, or the add/edit form's student picker).
+  const loadClassStudents = async (classId) => {
+    if (classStudents[classId]) return classStudents[classId]
+    const list = await fetchClassStudents(classId)
+    setClassStudents(prev => ({ ...prev, [classId]: list }))
+    return list
+  }
+
+  const getStudentsForClass = (classId) => classStudents[classId] ?? []
 
   const getResultsForStudent = (studentId) => {
     let r = modalResults.filter(r => r.student_id === studentId)
     if (search) r = r.filter(x =>
-      x.subjects?.name?.toLowerCase().includes(search.toLowerCase())
+      x.subject_name?.toLowerCase().includes(search.toLowerCase())
     )
     return r
   }
@@ -227,10 +227,13 @@ export default function ResultsManager() {
   // Load students when class changes in form
   useEffect(() => {
     if (!form.class_id) { setFormStudents([]); return }
-    setFormStudents(students.filter(s => s.class_id === form.class_id))
+    let cancelled = false
+    loadClassStudents(form.class_id).then(list => { if (!cancelled) setFormStudents(list) })
     // Reset student if class changed
     setForm(f => ({ ...f, student_id: "" }))
-  }, [form.class_id, students])
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.class_id])
 
   const validate = () => {
     const e = {}
@@ -261,11 +264,11 @@ export default function ResultsManager() {
 
   const openEdit = (result) => {
     if (!attemptWrite("academic")) return
-    const student = students.find(s => s.id === result.student_id)
+    // Always called from within the class modal, so the class is already known.
     setModalMode("edit")
     setEditingId(result.id)
     setForm({
-      class_id: student?.class_id ?? "",
+      class_id: selectedClass?.id ?? "",
       student_id: result.student_id,
       subject_id: result.subject_id,
       exam_id: result.exam_id,
@@ -282,34 +285,31 @@ export default function ResultsManager() {
     setSaving(true)
 
     const marks = Number(form.marks)
-    const grade = calcGrade(marks)
-    const remarks = calcRemarks(grade)
-    const examName = exams.find(e => e.id === form.exam_id)?.name ?? ""
+    // grade is computed server-side; remarks kept for display continuity.
+    const remarks = calcRemarks(calcGrade(marks))
 
     const payload = {
       student_id: form.student_id,
       subject_id: form.subject_id,
       exam_id: form.exam_id,
-      exam: examName,
-      marks, total: 100, grade, remarks,
+      marks,
+      total: 100,
+      remarks,
     }
 
-    let error
-    if (modalMode === "edit") {
-      const res = await supabase.from("results").update(payload).eq("id", editingId)
-      error = res.error
-    } else {
-      const id = `res_${Date.now()}`
-      const res = await supabase.from("results").insert({ id, ...payload })
-      error = res.error
+    try {
+      // Upsert by (student, subject, exam) — handles both add and edit.
+      await upsertResult(payload)
+      setSaved(true)
+      setModalOpen(false)
+      refreshModalResults()
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save result:", err)
+      setErrors({ save: err?.message || "Could not save the result." })
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) { setModalOpen(false); return }
-    setSaved(true)
-    setModalOpen(false)
-    refreshModalResults()
-    setTimeout(() => setSaved(false), 3000)
   }
 
   const openConfirmDelete = (result) => {
@@ -321,11 +321,16 @@ export default function ResultsManager() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
-    await supabase.from("results").delete().eq("id", deleteTarget.id)
-    setDeleting(false)
-    setConfirmOpen(false)
-    setDeleteTarget(null)
-    refreshModalResults()
+    try {
+      await deleteResult(deleteTarget.id)
+    } catch (err) {
+      console.error("Failed to delete result:", err)
+    } finally {
+      setDeleting(false)
+      setConfirmOpen(false)
+      setDeleteTarget(null)
+      refreshModalResults()
+    }
   }
 
   const visibleClasses = classFilter
@@ -389,7 +394,8 @@ export default function ResultsManager() {
       {/* Class cards */}
       <div className="flex flex-col gap-4">
         {visibleClasses.map(cls => {
-          const classStudents = getStudentsForClass(cls.id)
+          const counts = examCounts[cls.id]
+          const avg = counts?.entry_count ? Math.round(counts.marks_sum / counts.entry_count) : null
           const color = gradeColors[cls.grade] ?? "#059669"
           return (
             <button
@@ -406,7 +412,9 @@ export default function ResultsManager() {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-text">{cls.name}</p>
                 <p className="text-xs text-muted mt-0.5">
-                  {classStudents.length} students
+                  {counts?.entry_count
+                    ? `${counts.entry_count} results · avg ${avg}%`
+                    : "No results entered yet"}
                 </p>
               </div>
               <ChevronRight size={16} className="text-faint shrink-0" />
@@ -457,7 +465,7 @@ export default function ResultsManager() {
                         {/* Accordion header */}
                         <div
                           onClick={() => setExpandedStudent(isOpen ? null : student.id)}
-                          className={`w-full flex items-center gap-3 px-3 sm:px-4 py-3 transition-colors cursor-pointer select-none ${isOpen ? "bg-surface-2" : "bg-surface hover:bg-surface-2"}`}
+                          className={`w-full flex items-center gap-3 px-3 sm:px-4 py-3 transition-colors cursor-pointer select-none rounded-md ${isOpen ? "bg-surface-2 rounded-b-none" : "bg-surface hover:bg-surface-2"}`}
                         >
                           <div
                             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
@@ -514,25 +522,25 @@ export default function ResultsManager() {
 
                         {/* Expanded results */}
                         {isOpen && (
-                          <div className="border-t border-border bg-bg">
+                          <div className="border-t border-border bg-surface rounded-b-md">
                             {studentResults.length === 0 ? (
                               <p className="text-xs text-faint py-4 px-4">No results recorded.</p>
                             ) : (
                               <div className="max-h-96 overflow-y-auto overflow-x-auto">
                                 <table className="w-full text-sm border-collapse min-w-[480px]">
-                                  <thead className="sticky top-0 z-10 bg-surface-2 border-b border-border">
+                                  <thead className="sticky top-0 z-10 border-b border-border bg-primary">
                                     <tr>
-                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Subject</th>
-                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Marks</th>
-                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide">Grade</th>
-                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide hidden sm:table-cell">Remarks</th>
-                                        <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-wide hidden sm:table-cell" > Action </th>
+                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-surface uppercase tracking-wide">Subject</th>
+                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-surface uppercase tracking-wide">Marks</th>
+                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-surface uppercase tracking-wide">Grade</th>
+                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-surface uppercase tracking-wide hidden sm:table-cell">Remarks</th>
+                                      <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-semibold text-surface uppercase tracking-wide hidden sm:table-cell" > Action </th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-border">
                                     {studentResults.map(result => (
                                       <tr key={result.id} className="hover:bg-surface transition-colors duration-100 group">
-                                        <td className="px-3 sm:px-4 py-3 font-semibold text-text text-xs">{result.subjects?.name}</td>
+                                        <td className="px-3 sm:px-4 py-3 font-semibold text-text text-xs">{result.subject_name}</td>
                                         <td className="px-3 sm:px-4 py-3">
                                           <div className="flex items-center gap-2">
                                             <div className="w-12 sm:w-20 h-1.5 bg-surface-2 rounded-full overflow-hidden shrink-0">
@@ -562,13 +570,13 @@ export default function ResultsManager() {
                                           <div className="flex items-center gap-1  transition-opacity duration-150">
                                             <button
                                               onClick={() => openEdit(result)}
-                                              className="p-1.5 rounded-md hover:bg-surface-2 text-faint hover:text-text transition-colors"
+                                              className="p-1.5 rounded-sm hover:bg-surface-2 text-faint hover:text-text transition-colors"
                                             >
                                               <Pencil size={13} />
                                             </button>
                                             <button
                                               onClick={() => openConfirmDelete(result)}
-                                              className="p-1.5 rounded-md hover:bg-surface-2 text-faint hover:text-danger transition-colors"
+                                              className="p-1.5 rounded-sm hover:bg-surface-2 text-faint hover:text-danger transition-colors"
                                             >
                                               <Trash2 size={13} />
                                             </button>
@@ -678,7 +686,7 @@ export default function ResultsManager() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border">
+          <div className="flex gap-3 pt-5 border-t border-border">
             <button onClick={handleSave} disabled={saving} className="btn btn-primary disabled:opacity-60">
               {saving
                 ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

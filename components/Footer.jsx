@@ -6,6 +6,7 @@ const links = {
     { label: "Home", href: "/" },
     { label: "About", href: "/about" },
     { label: "Admission", href: "/admission" },
+    { label: "Track Application", href: "/admission/track" },
     { label: "Student Portal", href: "/student/dashboard" },
     { label: "Teacher Portal", href: "/teacher/dashboard" },
   ],

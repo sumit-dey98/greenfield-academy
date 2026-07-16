@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMyClass, updateMe } from "@/lib/api/teachers"
 import { useAuth } from "@/context/AuthContext"
 import {
   User, Mail, Phone, BookOpen, Calendar,
@@ -22,27 +22,30 @@ function InfoRow({ icon, label, value }) {
 }
 
 export default function TeacherProfile() {
-  const { user, setUser } = useAuth()
+  const { user, updateUser } = useAuth()
   const [cls, setCls] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [phone, setPhone] = useState("")
+  const [phone, setPhone] = useState(user?.phone ?? "")
   const [phoneError, setPhoneError] = useState(null)
 
   useEffect(() => {
-    if (!user?.class_id) { setLoading(false); return }
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("classes")
-        .select("*")
-        .eq("id", user.class_id)
-        .single()
-      if (data) setCls(data)
-      setLoading(false)
+    if (!user) return
+    const load = async () => {
+      try {
+        // Homeroom class (class_info carries name/grade/section/room).
+        const roster = await getMyClass()
+        setCls(roster?.class_info ?? null)
+      } catch (err) {
+        // 404 = no homeroom class assigned; leave cls null.
+        if (err?.status !== 404) console.error("Failed to load class:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
   }, [user])
 
   const handleSave = async () => {
@@ -52,20 +55,18 @@ export default function TeacherProfile() {
     }
     setSaving(true)
     setPhoneError(null)
-    const { error } = await supabase
-      .from("teachers")
-      .update({ phone })
-      .eq("id", user.id)
-
-    if (!error) {
-      const updated = { ...user, phone }
-      localStorage.setItem("user", JSON.stringify(updated))
-      setUser(updated)
+    try {
+      await updateMe({ phone })
+      updateUser({ phone })
       setSuccess(true)
       setEditing(false)
       setTimeout(() => setSuccess(false), 3000)
+    } catch (err) {
+      console.error("Failed to update profile:", err)
+      setPhoneError("Could not save. Please try again.")
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const initials = user?.name

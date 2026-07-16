@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { listUsers, createUser, deleteUser } from "@/lib/api/users"
 import { useAuth } from "@/context/AuthContext"
 import {
   Plus, Trash2, Save,
@@ -14,7 +14,7 @@ import Select from "@/components/ui/Select"
 import Modal from "@/components/ui/Modal"
 import ConfirmDialog from "@/components/ui/ConfirmDialog"
 
-const emptyForm = { name: "", email: "", phone: "", address: "", role: "admin" }
+const emptyForm = { name: "", email: "", password: "", phone: "", address: "", role: "admin" }
 
 export default function UserManager() {
   const { attemptWrite } = useAuth()
@@ -33,12 +33,14 @@ export default function UserManager() {
   const [deleting, setDeleting] = useState(false)
 
   const fetchUsers = async () => {
-    const { data } = await supabase
-      .from("users")
-      .select("*")
-      .order("created_at", { ascending: true })
-    if (data) setUsers(data)
-    setLoading(false)
+    try {
+      const data = await listUsers()
+      setUsers(data ?? [])
+    } catch (err) {
+      console.error("Failed to load admin users:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchUsers() }, [])
@@ -58,6 +60,7 @@ export default function UserManager() {
     const e = {}
     if (!form.name?.trim()) e.name = "Name is required."
     if (!form.email?.trim()) e.email = "Email is required."
+    if (!form.password || form.password.length < 8) e.password = "Password must be at least 8 characters."
     return e
   }
 
@@ -74,22 +77,25 @@ export default function UserManager() {
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setSaving(true)
 
-    const id = `usr_${Date.now()}`
-    const { error } = await supabase.from("users").insert({
-      id,
-      name: form.name.trim(),
-      email: form.email.trim().toLowerCase(),
-      phone: form.phone.trim() || null,
-      address: form.address.trim() || null,
-      role: form.role,
-    })
-
-    setSaving(false)
-    if (error) { setModalOpen(false); return }
-    setSaved(true)
-    setModalOpen(false)
-    fetchUsers()
-    setTimeout(() => setSaved(false), 3000)
+    try {
+      await createUser({
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+        phone: form.phone.trim() || null,
+        address: form.address.trim() || null,
+        role: form.role,
+      })
+      setSaved(true)
+      setModalOpen(false)
+      fetchUsers()
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to create admin user:", err)
+      setErrors({ save: err?.message || "Could not create the admin user." })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const openConfirmDelete = (user) => {
@@ -101,11 +107,16 @@ export default function UserManager() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
-    await supabase.from("users").delete().eq("id", deleteTarget.id)
-    setDeleting(false)
-    setConfirmOpen(false)
-    setDeleteTarget(null)
-    fetchUsers()
+    try {
+      await deleteUser(deleteTarget.id)
+    } catch (err) {
+      console.error("Failed to delete admin user:", err)
+    } finally {
+      setDeleting(false)
+      setConfirmOpen(false)
+      setDeleteTarget(null)
+      fetchUsers()
+    }
   }
 
   const initials = (name) =>
@@ -232,6 +243,7 @@ export default function UserManager() {
               searchable={false}
             />
             <Input label="Email" type="email" required value={form.email} onChange={e => set("email", e.target.value)} error={errors.email} placeholder="admin@greenfieldacademy.edu.bd" />
+            <Input label="Password" type="password" required value={form.password} onChange={e => set("password", e.target.value)} error={errors.password} placeholder="Min. 8 characters" />
             <Input label="Phone" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="+880-XXXX-XXXXXX" />
             <div className="sm:col-span-2">
               <Input label="Address" value={form.address} onChange={e => set("address", e.target.value)} placeholder="Residential address" />
@@ -245,7 +257,7 @@ export default function UserManager() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border">
+          <div className="flex gap-3 pt-5 border-t border-border">
             <button onClick={handleSave} disabled={saving} className="btn btn-primary disabled:opacity-60">
               {saving
                 ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

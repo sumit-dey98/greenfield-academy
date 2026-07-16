@@ -1,7 +1,13 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { listStudents, listTeachers } from "@/lib/api/adminPeople"
+import { listClasses } from "@/lib/api/classes"
+import { listEvents } from "@/lib/api/events"
+import { listExams } from "@/lib/api/exams"
+import { listResults } from "@/lib/api/results"
+import { listNotices } from "@/lib/api/notices"
+import { listCounts } from "@/lib/api/counts"
 import Link from "next/link"
 import {
   Users, User, BookOpen, Bell, Calendar,
@@ -25,45 +31,59 @@ export default function DashboardScreen({ basePath = "/admin" }) {
   const [notices, setNotices] = useState([])
   const [classes, setClasses] = useState([])
   const [results, setResults] = useState([])
+  const [avgMarks, setAvgMarks] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchAll = async () => {
-      const [
-        studentsRes, teachersRes, classesRes,
-        noticesRes, eventsRes, examRes,
-      ] = await Promise.all([
-        supabase.from("students").select("id, class_id"),
-        supabase.from("teachers")
-          .select("id")
-          .not("role", "in", '("Chairman")'),
-        supabase.from("classes").select("id, name, grade"),
-        supabase.from("notices").select("*").order("date", { ascending: false }).limit(5),
-        supabase.from("events").select("id").eq("published", true),
-        supabase.from("exams")
-          .select("name")
-          .eq("status", "ended")
-          .order("end_date", { ascending: false })
-          .limit(1)
-          .single(),
-      ])
+      try {
+        const [studentsPage, teachersPage, classesData, noticesPage, eventsPage, examsData] = await Promise.all([
+          listStudents({ limit: 1 }),
+          listTeachers({ limit: 1 }),
+          listClasses(),
+          listNotices({ limit: 5 }),
+          listEvents({ published: true, limit: 1 }),
+          listExams(),
+        ])
 
-      const latestExam = examRes.data?.name
-      const { data: resultsData } = latestExam
-        ? await supabase.from("results").select("marks").eq("exam", latestExam)
-        : { data: [] }
+        // Latest ended exam -> its results, for both the avg-marks stat and the
+        // distribution chart below. The average comes from the pre-aggregated counts
+        // (one cheap call, summed across classes) rather than the full row fetch — the
+        // row fetch still happens because the histogram genuinely needs per-result marks.
+        const ended = (examsData ?? [])
+          .filter(e => e.status === "ended")
+          .sort((a, b) => (b.end_date ?? "").localeCompare(a.end_date ?? ""))[0]
+        let resultsData = []
+        let avg = 0
+        if (ended) {
+          const [rp, countPage] = await Promise.all([
+            listResults({ exam_id: ended.id, limit: 2000 }),
+            listCounts({ scope_type: "class", period_type: "exam", period_key: ended.id, limit: 200 }),
+          ])
+          resultsData = rp?.items ?? []
+          // subject_id=null rows are the all-subjects rollup per class; sum across classes.
+          const rollup = (countPage?.items ?? []).filter(r => !r.subject_id)
+          const marksSum = rollup.filter(r => r.metric === "results_marks_sum").reduce((s, r) => s + r.value, 0)
+          const entryCount = rollup.filter(r => r.metric === "results_entry_count").reduce((s, r) => s + r.value, 0)
+          avg = entryCount ? Math.round(marksSum / entryCount) : 0
+        }
 
-      setStats({
-        students: studentsRes.data?.length ?? 0,
-        teachers: teachersRes.data?.length ?? 0,
-        classes: classesRes.data?.length ?? 0,
-        notices: noticesRes.data?.length ?? 0,
-        events: eventsRes.data?.length ?? 0,
-      })
-      setNotices(noticesRes.data ?? [])
-      setClasses(classesRes.data ?? [])
-      setResults(resultsData ?? [])
-      setLoading(false)
+        setStats({
+          students: studentsPage?.total ?? 0,
+          teachers: teachersPage?.total ?? 0,
+          classes: (classesData ?? []).length,
+          notices: noticesPage?.total ?? 0,
+          events: eventsPage?.total ?? 0,
+        })
+        setNotices(noticesPage?.items ?? [])
+        setClasses(classesData ?? [])
+        setResults(resultsData)
+        setAvgMarks(avg)
+      } catch (err) {
+        console.error("Failed to load dashboard:", err)
+      } finally {
+        setLoading(false)
+      }
     }
     fetchAll()
   }, [])
@@ -72,10 +92,6 @@ export default function DashboardScreen({ basePath = "/admin" }) {
     name: cls.name.replace("Class ", "").replace(" - ", "\n"),
     grade: cls.grade,
   }))
-
-  const avgMarks = results.length
-    ? Math.round(results.reduce((s, r) => s + r.marks, 0) / results.length)
-    : 0
 
   const statCards = [
     {
@@ -173,7 +189,7 @@ export default function DashboardScreen({ basePath = "/admin" }) {
       </div>
 
       <div className="card flex flex-col gap-4">
-        <h2 className="font-semibold text-text">Quick Actions</h2>
+        <h2 className="font-semibold text-text">Quick Access</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
             { label: "Add Notice", href: `${basePath}/notices`, color: COLORS.warning, icon: <Bell size={18} /> },
@@ -188,7 +204,7 @@ export default function DashboardScreen({ basePath = "/admin" }) {
               style={{ background: `${a.color}20`, boxShadow: `0 0 1px 1px ${a.color}40` }}
               onMouseEnter={e => e.currentTarget.style.background = `${a.color}40`}
               onMouseLeave={e => e.currentTarget.style.background = `${a.color}20`}
-              className={`flex sm:items-center gap-3 p-4 rounded-lg flex-col sm:flex-row bg-surface hover:!bg-${a.color} hover:ring hover:ring-surface-2 no-underline transition-all duration-200`}
+              className={`flex sm:items-center gap-3 p-4 rounded-sm flex-col sm:flex-row bg-surface hover:!bg-${a.color} hover:ring hover:ring-surface-2 no-underline transition-all duration-200`}
             >
               <div
                 className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
@@ -258,7 +274,7 @@ export default function DashboardScreen({ basePath = "/admin" }) {
           </div>
           <div className="flex flex-col gap-4">
             {notices.map(n => (
-              <div key={n.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-surface-2 shadow-hover">
+              <div key={n.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-sm bg-surface-2 shadow-hover">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text truncate">{n.title}</p>
                   <p className="text-xs text-faint">

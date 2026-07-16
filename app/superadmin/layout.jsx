@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
-import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/context/AuthContext"
 import {
   Shield, LayoutDashboard, Users, BookOpen,
   Bell, Calendar, MessageSquare, Settings,
-  LogOut, Menu, X, ChevronDown, User, CalendarDays, ClipboardList, CalendarCheck, GraduationCap
+  LogOut, Menu, X, ChevronDown, User, CalendarDays, ClipboardList, CalendarCheck, GraduationCap, KeyRound, ScrollText, FileCheck2
 } from "lucide-react"
 import ThemeToggle from "@/components/ThemeToggle"
 
@@ -40,9 +40,24 @@ const navItems = [
     ],
   },
   {
+    label: "Admissions",
+    href: "/superadmin/admissions",
+    icon: <FileCheck2 size={18} />,
+  },
+  {
     label: "Settings",
     href: "/superadmin/settings",
     icon: <Settings size={18} />,
+  },
+  {
+    label: "Reset Requests",
+    href: "/superadmin/password-reset-requests",
+    icon: <KeyRound size={18} />,
+  },
+  {
+    label: "Audit Log",
+    href: "/superadmin/audit-log",
+    icon: <ScrollText size={18} />,
   },
   {
     label: "Users",
@@ -59,7 +74,7 @@ function NavGroup({ item, pathname, setSidebarOpen }) {
     <div>
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-left
+        className="flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium w-full text-left
           text-sidebar-text hover:bg-sidebar-hover hover:text-white transition-colors duration-150"
       >
         {item.icon}
@@ -78,7 +93,7 @@ function NavGroup({ item, pathname, setSidebarOpen }) {
                 key={child.href}
                 href={child.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium no-underline
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-sm text-sm font-medium no-underline
                   transition-colors duration-150
                   ${active
                     ? "bg-sidebar-active text-white"
@@ -99,43 +114,19 @@ function NavGroup({ item, pathname, setSidebarOpen }) {
 export default function SuperAdminLayout({ children }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [user, setUser] = useState(null)
-  const [checking, setChecking] = useState(true)
+  const { user, loading, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
-    if (pathname === "/superadmin/login") {
-      setChecking(false)
-      return
+    if (pathname === "/superadmin/login") return
+    if (loading) return
+    if (!user || user.role !== "super_admin") {
+      router.push("/superadmin/login")
     }
+  }, [user, loading, pathname])
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!session) {
-        router.push("/superadmin/login")
-        return
-      }
-
-      const { data: sa } = await supabase
-        .from("superadmin")
-        .select("id, email, name")
-        .eq("id", session.user.id)
-        .single()
-
-      if (!sa) {
-        await supabase.auth.signOut()
-        router.push("/superadmin/login")
-        return
-      }
-
-      setUser(sa)
-      setChecking(false)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [pathname])
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
+  const handleLogout = () => {
+    logout()
     router.push("/superadmin/login")
   }
 
@@ -147,7 +138,7 @@ export default function SuperAdminLayout({ children }) {
     return <>{children}</>
   }
 
-  if (checking) return null
+  if (loading || !user || user.role !== "super_admin") return null
 
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
@@ -198,7 +189,7 @@ export default function SuperAdminLayout({ children }) {
                 key={item.href}
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium no-underline
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium no-underline
                   transition-colors duration-150
                   ${pathname === item.href
                     ? "bg-sidebar-active text-white"
@@ -216,7 +207,7 @@ export default function SuperAdminLayout({ children }) {
         <div className="px-3 py-4 border-t border-white/10">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-white w-full transition-colors duration-150"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-white w-full transition-colors duration-150"
           >
             <LogOut size={18} />
             Sign Out

@@ -1,3 +1,4 @@
+// ⚠️ LEGACY — unused. App migrated off Supabase to the FastAPI backend (lib/api/*).
 import { createBrowserClient } from "@supabase/ssr";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

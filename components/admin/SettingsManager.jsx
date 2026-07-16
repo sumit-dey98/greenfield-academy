@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getAdmissionStatus, setAdmissionStatus } from "@/lib/api/admission"
 import { useAuth } from "@/context/AuthContext"
 import { Settings, GraduationCap, CheckCircle, Lock } from "lucide-react"
 
@@ -13,31 +13,33 @@ export default function SettingsManager() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("admission_open")
-        .select("value")
-        .eq("id", "admission_status")
-        .single()
-      setAdmissionOpen(data?.value ?? false)
-      setLoading(false)
+    const load = async () => {
+      try {
+        const data = await getAdmissionStatus()
+        setAdmissionOpen(data?.value ?? false)
+      } catch (err) {
+        console.error("Failed to load admission status:", err)
+      } finally {
+        setLoading(false)
+      }
     }
-    fetch()
+    load()
   }, [])
 
   const handleToggle = async (val) => {
     if (!attemptWrite("cms")) return
     setSaving(true)
     setSaved(false)
-    const { error } = await supabase
-      .from("admission_open")
-      .update({ value: val })
-      .eq("id", "admission_status")
-    setSaving(false)
-    if (error) return
-    setAdmissionOpen(val)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    try {
+      const data = await setAdmissionStatus(val)
+      setAdmissionOpen(data?.value ?? val)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save admission status:", err)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -84,7 +86,7 @@ export default function SettingsManager() {
                 </div>
               </div>
 
-              <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border shadow-card ${admissionOpen ? "bg-primary-light border-success" : "bg-surface-2 border-border"}`}>
+              <div className={`flex items-start gap-3 px-4 py-3 rounded-md border shadow-card ${admissionOpen ? "bg-primary-light border-success" : "bg-surface-2 border-border"}`}>
                 {admissionOpen
                   ? <CheckCircle size={16} className="text-success shrink-0 mt-0.5" />
                   : <Lock size={16} className="text-faint shrink-0 mt-0.5" />
@@ -125,7 +127,7 @@ export default function SettingsManager() {
               { label: "Email", value: "info@greenfieldacademy.edu.bd" },
               { label: "Website", value: "www.greenfieldacademy.edu.bd" },
             ].map((item, i) => (
-              <div key={i} className="flex flex-col gap-1 px-3 py-2.5 bg-surface-2 rounded-lg shadow-card">
+              <div key={i} className="flex flex-col gap-1 px-3 py-2.5 bg-surface-2 rounded-md shadow-card">
                 <span className="text-xs text-muted">{item.label}</span>
                 <span className="text-sm font-medium text-text">{item.value}</span>
               </div>

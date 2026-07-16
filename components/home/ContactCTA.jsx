@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { MapPin, Phone, Mail, ArrowRight } from "lucide-react"
+import Reveal from "@/components/ui/Reveal"
 
 const contact = [
   {
@@ -24,13 +25,13 @@ const contact = [
 
 export default function ContactCTA() {
   return (
-    <section className="bg-surface border-t border-surface-2 py-10 md:py-20 px-6 md:px-12">
+    <section className="bg-surface py-10 md:py-20 px-6 md:px-12">
       <div className="max-w-6xl mx-auto">
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 
           {/* Text */}
-          <div className="flex flex-col gap-6">
+          <Reveal direction="right" className="flex flex-col gap-6">
             <div>
               <div className="inline-flex items-center gap-2 bg-primary-light text-primary px-4 py-1.5 rounded-full text-sm font-semibold mb-4 ring-1 ring-primary">
                 Get In Touch
@@ -71,10 +72,10 @@ export default function ContactCTA() {
                 Learn More
               </Link>
             </div>
-          </div>
+          </Reveal>
 
           {/* Map */}
-          <div className="rounded-xl overflow-hidden border border-border shadow-card h-80">
+          <Reveal direction="left" delay={0.1} className="rounded-md overflow-hidden border border-border shadow-card h-80">
             <iframe
               title="Greenfield Academy Location"
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3651.902!2d90.3742!3d23.7461!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjPCsDQ0JzQ2LjAiTiA5MMKwMjInMjcuMSJF!5e0!3m2!1sen!2sbd!4v1234567890"
@@ -85,7 +86,7 @@ export default function ContactCTA() {
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
-          </div>
+          </Reveal>
 
         </div>
       </div>

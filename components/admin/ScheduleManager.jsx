@@ -1,7 +1,13 @@
 'use client'
 
 import { useEffect, useState, useRef } from "react"
-import { supabase } from "@/lib/supabase"
+import {
+  listSchedule, createSchedule, updateSchedule, deleteSchedule,
+  listPeriods, createPeriod, updatePeriod, deletePeriod,
+} from "@/lib/api/schedule"
+import { listClasses } from "@/lib/api/classes"
+import { listSubjects } from "@/lib/api/subjects"
+import { listTeachers } from "@/lib/api/adminPeople"
 import { useAuth } from "@/context/AuthContext"
 import {
   Clock, Plus, Trash2, Save,
@@ -48,24 +54,46 @@ export default function ScheduleManager() {
 
   const popoverRef = useRef(null)
 
-  const fetchAll = async () => {
-    const [classesRes, subjectsRes, teachersRes, periodsRes, scheduleRes] = await Promise.all([
-      supabase.from("classes").select("*").order("grade", { ascending: true }),
-      supabase.from("subjects").select("*").order("name", { ascending: true }),
-      supabase.from("teachers").select("*"),
-      supabase.from("periods").select("*").order("sort_order", { ascending: true }),
-      supabase.from("schedule").select("*, subjects(name), teachers(name)"),
-    ])
-    if (classesRes.data) setClasses(classesRes.data)
-    if (subjectsRes.data) setSubjects(subjectsRes.data)
-    if (teachersRes.data) setTeachers(teachersRes.data)
-    if (periodsRes.data) setPeriods(periodsRes.data)
-    if (scheduleRes.data) setSchedule(scheduleRes.data)
-    if (classesRes.data?.[0]) setSelectedClass(classesRes.data[0].id)
-    setLoading(false)
+  // Reference data (classes/subjects/teachers/periods) is small and fixed — load once.
+  const fetchMeta = async () => {
+    try {
+      const [classesData, subjectsData, teachersPage, periodsData] = await Promise.all([
+        listClasses(),
+        listSubjects(),
+        listTeachers({ limit: 200 }),
+        listPeriods(),
+      ])
+      const cls = classesData ?? []
+      setClasses(cls)
+      setSubjects(subjectsData ?? [])
+      setTeachers(teachersPage?.items ?? [])
+      setPeriods(periodsData ?? [])
+      setSelectedClass(prev => prev || (cls[0]?.id ?? ""))
+    } catch (err) {
+      console.error("Failed to load schedule metadata:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { fetchAll() }, [])
+  // The timetable itself is fetched per selected class — one class is at most
+  // days × periods entries, well within a single page.
+  const fetchSchedule = async (classId) => {
+    if (!classId) { setSchedule([]); return }
+    try {
+      const schedulePage = await listSchedule({ class_id: classId, limit: 200 })
+      setSchedule(schedulePage?.items ?? [])
+    } catch (err) {
+      console.error("Failed to load schedule:", err)
+    }
+  }
+
+  // Admin /schedule returns ids only (no joined names) — resolve from the loaded lists.
+  const getSubjectName = (id) => subjects.find(s => s.id === id)?.name
+  const getTeacherName = (id) => teachers.find(t => t.id === id)?.name
+
+  useEffect(() => { fetchMeta() }, [])
+  useEffect(() => { fetchSchedule(selectedClass) }, [selectedClass])
 
   useEffect(() => {
     const handler = (e) => {
@@ -81,6 +109,21 @@ export default function ScheduleManager() {
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
+  useEffect(() => {
+    if (!activeCell) return
+    const handler = (e) => {
+      if (
+        popoverRef.current?.contains(e.target) ||
+        e.target.closest?.("[data-select-dropdown]") ||
+        e.target.closest?.("[data-datepicker-calendar]")
+      ) return
+      setActiveCell(null)
+      setConflict(null)
+    }
+    window.addEventListener("scroll", handler, true)
+    return () => window.removeEventListener("scroll", handler, true)
+  }, [activeCell])
+
   const getSlot = (periodId, day) =>
     schedule.find(s =>
       s.class_id === selectedClass &&
@@ -88,18 +131,10 @@ export default function ScheduleManager() {
       s.day === day
     )
 
-  const checkConflict = (periodId, day, teacherId) => {
-    if (!teacherId) return null
-    const clash = schedule.find(s =>
-      s.period_id === periodId &&
-      s.day === day &&
-      s.teacher_id === teacherId &&
-      s.class_id !== selectedClass
-    )
-    if (!clash) return null
-    const clashClass = classes.find(c => c.id === clash.class_id)
-    return `${teachers.find(t => t.id === teacherId)?.name} is already teaching another class (${clashClass?.name ?? clash.class_id}) at this time.`
-  }
+  // Only this class's schedule is loaded, so we can't pre-detect cross-class teacher
+  // clashes here — the backend enforces that on save (TEACHER_SCHEDULE_CONFLICT) and
+  // its message is surfaced in the popover. Nothing to warn about client-side.
+  const checkConflict = () => null
 
   const openCell = (periodId, day, anchorEl) => {
     if (!attemptWrite("academic")) return
@@ -152,21 +187,22 @@ export default function ScheduleManager() {
       room: cellForm.room.trim(),
     }
 
-    let error
-    if (existing) {
-      const res = await supabase.from("schedule").update(payload).eq("id", existing.id)
-      error = res.error
-    } else {
-      const id = `sch_${Date.now()}`
-      const res = await supabase.from("schedule").insert({ id, ...payload })
-      error = res.error
+    try {
+      if (existing) {
+        await updateSchedule(existing.id, payload)
+      } else {
+        await createSchedule(payload)
+      }
+      setActiveCell(null)
+      setConflict(null)
+      fetchSchedule(selectedClass)
+    } catch (err) {
+      // Surface backend schedule-conflict messages (teacher/class/room) in the popover.
+      console.error("Failed to save slot:", err)
+      setConflict(err?.message || "Could not save this slot.")
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) return
-    setActiveCell(null)
-    setConflict(null)
-    fetchAll()
   }
 
   const handleDeleteCell = async (periodId, day) => {
@@ -174,10 +210,15 @@ export default function ScheduleManager() {
     const existing = getSlot(periodId, day)
     if (!existing) return
     setDeleting(`${periodId}-${day}`)
-    await supabase.from("schedule").delete().eq("id", existing.id)
-    setDeleting(null)
-    setActiveCell(null)
-    fetchAll()
+    try {
+      await deleteSchedule(existing.id)
+    } catch (err) {
+      console.error("Failed to delete slot:", err)
+    } finally {
+      setDeleting(null)
+      setActiveCell(null)
+      fetchSchedule(selectedClass)
+    }
   }
 
   const openEditPeriod = (period) => {
@@ -193,22 +234,39 @@ export default function ScheduleManager() {
 
   const handleSavePeriod = async (periodId) => {
     setSavingPeriod(true)
-    await supabase.from("periods").update({
-      start_time: periodForm.start_time,
-      end_time: periodForm.end_time,
-      label: periodForm.label || null,
-      is_break: periodForm.is_break,
-    }).eq("id", periodId)
-    setSavingPeriod(false)
-    setEditingPeriod(null)
-    fetchAll()
+    try {
+      await updatePeriod(periodId, {
+        start_time: periodForm.start_time,
+        end_time: periodForm.end_time,
+        label: periodForm.label || null,
+        is_break: periodForm.is_break,
+      })
+      setEditingPeriod(null)
+      fetchMeta()
+    } catch (err) {
+      console.error("Failed to save period:", err)
+    } finally {
+      setSavingPeriod(false)
+    }
   }
 
   const handleDeletePeriod = async (periodId) => {
     if (!attemptWrite("academic")) return
-    await supabase.from("schedule").delete().eq("period_id", periodId)
-    await supabase.from("periods").delete().eq("id", periodId)
-    fetchAll()
+    try {
+      // Deleting a period is blocked while schedule entries reference it. We only have the
+      // selected class's entries loaded; fetch every class's entries for this period so we
+      // can clear them all before deleting the period.
+      const refPage = await listSchedule({ /* all classes */ limit: 200 })
+      const referencing = (refPage?.items ?? []).filter(s => s.period_id === periodId)
+      for (const slot of referencing) {
+        await deleteSchedule(slot.id)
+      }
+      await deletePeriod(periodId)
+      fetchMeta()
+      fetchSchedule(selectedClass)
+    } catch (err) {
+      console.error("Failed to delete period:", err)
+    }
   }
 
   const handleAddPeriod = async () => {
@@ -216,24 +274,27 @@ export default function ScheduleManager() {
     if (!newPeriod.start_time || !newPeriod.end_time) return
     setSavingPeriod(true)
     const maxOrder = Math.max(...periods.map(p => p.sort_order), 0)
-    const id = `per_${Date.now()}`
-    await supabase.from("periods").insert({
-      id,
-      sort_order: maxOrder + 1,
-      start_time: newPeriod.start_time,
-      end_time: newPeriod.end_time,
-      is_break: newPeriod.is_break,
-      label: newPeriod.label || null,
-    })
-    setSavingPeriod(false)
-    setShowAddPeriod(false)
-    setNewPeriod({ start_time: "", end_time: "", is_break: false, label: "" })
-    fetchAll()
+    try {
+      await createPeriod({
+        sort_order: maxOrder + 1,
+        start_time: newPeriod.start_time,
+        end_time: newPeriod.end_time,
+        is_break: newPeriod.is_break,
+        label: newPeriod.label || null,
+      })
+      setShowAddPeriod(false)
+      setNewPeriod({ start_time: "", end_time: "", is_break: false, label: "" })
+      fetchMeta()
+    } catch (err) {
+      console.error("Failed to add period:", err)
+    } finally {
+      setSavingPeriod(false)
+    }
   }
 
   const classOptions = classes.map(c => ({ label: c.name, value: c.id }))
   const subjectOptions = subjects.map(s => ({ label: s.name, value: s.id }))
-  const teacherOptions = teachers.map(t => ({ label: `${t.name} (${t.subject})`, value: t.id }))
+  const teacherOptions = teachers.map(t => ({ label: `${t.name} (${t.subject_name ?? "—"})`, value: t.id }))
 
   if (loading) return (
     <div className="flex items-center justify-center h-full">
@@ -265,7 +326,7 @@ export default function ScheduleManager() {
         </div>
 
         {showAddPeriod && (
-          <div className="flex flex-col xl:flex-row xl:justify-between gap-3 flex-1 min-w-0 p-3 bg-surface-2 rounded-lg border border-border">
+          <div className="flex flex-col xl:flex-row xl:justify-between gap-3 flex-1 min-w-0 p-3 bg-surface-2 rounded-md border border-border">
             {/* Time pickers */}
             <div className="flex items-end gap-2 flex-wrap md:flex-nowrap">
               <TimePicker className="min-w-44" label="Start" value={newPeriod.start_time} onChange={v => setNewPeriod(f => ({ ...f, start_time: v }))} />
@@ -302,7 +363,7 @@ export default function ScheduleManager() {
           {periods.map(period => (
             <div
               key={period.id}
-              className={`flex items-start gap-3 px-4 py-2.5 rounded-lg border transition-colors ${period.is_break ? "bg-border border-border" : "bg-bg border-border"}`}
+              className={`flex items-start gap-3 px-4 py-2.5 rounded-sm border transition-colors ${period.is_break ? "bg-border border-border" : "bg-bg border-border"}`}
             >
               {editingPeriod === period.id ? (
                 <div className="flex flex-col xl:flex-row xl:justify-between gap-3 flex-1 min-w-0 ">
@@ -347,10 +408,10 @@ export default function ScheduleManager() {
                     {period.label && !period.is_break && <span className="text-xs text-muted truncate">{period.label}</span>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => openEditPeriod(period)} className="p-1.5 rounded-md hover:bg-surface-2 text-text hover:text-amber-800 transition-colors">
+                    <button onClick={() => openEditPeriod(period)} className="p-1.5 rounded-sm hover:bg-surface-2 text-text hover:text-amber-800 transition-colors">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => handleDeletePeriod(period.id)} className="p-1.5 rounded-md hover:bg-surface-2 text-text hover:text-danger transition-colors">
+                    <button onClick={() => handleDeletePeriod(period.id)} className="p-1.5 rounded-sm hover:bg-surface-2 text-text hover:text-danger transition-colors">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -377,13 +438,13 @@ export default function ScheduleManager() {
           <table className="w-full border-collapse" style={{ minWidth: "700px" }}>
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide bg-surface2 w-32">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-bg uppercase tracking-wide bg-surface2 w-32 bg-text rounded-tl-md">
                   Period
                 </th>
                 {DAYS.map((day, di) => (
                   <th
                     key={day}
-                    className="text-center px-3 py-3 text-xs font-semibold uppercase tracking-wide bg-surface2"
+                    className="text-center px-3 py-3 text-xs font-semibold uppercase tracking-wide bg-surface2 bg-text last:rounded-tr-md"
                     style={{ color: DAY_COLORS[di] }}
                   >
                     {day}
@@ -393,7 +454,7 @@ export default function ScheduleManager() {
             </thead>
             <tbody>
               {periods.map(period => (
-                <tr key={period.id} className={`border-b border-border last:border-0 ${period.is_break ? "bg-surface2 opacity-70" : ""}`}>
+                <tr key={period.id} className={`border-b border-border last:border-0 ${period.is_break ? "bg-surface-2 opacity-70" : ""}`}>
                   <td className="px-4 py-3 shrink-0 w-32">
                     {period.is_break ? (
                       <div className="flex flex-col gap-0.5">
@@ -427,7 +488,7 @@ export default function ScheduleManager() {
                       <td key={day} className="px-2 py-2">
                         {slot ? (
                           <div
-                            className="relative w-full rounded-lg border px-2.5 py-2 group"
+                            className="relative w-full rounded-sm border px-2.5 py-2 group"
                             style={{ background: `${color}10`, borderColor: isActive ? color : `${color}30` }}
                           >
                             {/* Action icons */}
@@ -455,16 +516,16 @@ export default function ScheduleManager() {
                             {/* Cell content  */}
                             <div className="flex flex-col gap-1 pr-10">
                               <p className="text-xs font-semibold truncate" style={{ color }}>
-                                {slot.subjects?.name}
+                                {getSubjectName(slot.subject_id)}
                               </p>
-                              <p className="text-xs text-muted truncate">{slot.teachers?.name}</p>
+                              <p className="text-xs text-muted truncate">{getTeacherName(slot.teacher_id)}</p>
                               <p className="text-xs text-faint">Rm {slot.room}</p>
                             </div>
                           </div>
                         ) : (
                           <button
                             onClick={(e) => openCell(period.id, day, e.currentTarget)}
-                            className="w-full h-16 rounded-lg border-2 border-dashed border-border hover:border-primary hover:bg-primary-light transition-all duration-150 flex items-center justify-center group"
+                            className="w-full h-16 rounded-sm border-2 border-dashed border-border hover:border-primary hover:bg-primary-light transition-all duration-150 flex items-center justify-center group"
                           >
                             <Plus size={14} className="text-faint group-hover:text-primary transition-colors" />
                           </button>
@@ -483,7 +544,7 @@ export default function ScheduleManager() {
       {activeCell && (
         <div
           ref={popoverRef}
-          className="fixed z-50 bg-surface border border-border rounded-xl shadow-xl p-4 flex flex-col gap-3"
+          className="fixed z-50 bg-surface border-2 border-border rounded-sm shadow-xl p-4 flex flex-col gap-3"
           style={{
             top: popoverPos.top,
             left: popoverPos.left,

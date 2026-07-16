@@ -7,7 +7,7 @@ import Link from "next/link"
 import {
   GraduationCap, LayoutDashboard, Users, BookOpen,
   Bell, Calendar, MessageSquare, Settings,
-  LogOut, Menu, X, ChevronDown, User, CalendarDays, ClipboardList, CalendarCheck
+  LogOut, Menu, X, ChevronDown, User, CalendarDays, ClipboardList, CalendarCheck, KeyRound, FileCheck2
 } from "lucide-react"
 import ThemeToggle from "@/components/ThemeToggle"
 
@@ -40,9 +40,19 @@ const navItems = [
     ],
   },
   {
+    label: "Admissions",
+    href: "/admin/admissions",
+    icon: <FileCheck2 size={18} />,
+  },
+  {
     label: "Settings",
     href: "/admin/settings",
     icon: <Settings size={18} />,
+  },
+  {
+    label: "Reset Requests",
+    href: "/admin/password-reset-requests",
+    icon: <KeyRound size={18} />,
   },
 ]
 
@@ -57,7 +67,7 @@ function NavGroup({ item, pathname, setSidebarOpen }) {
     <div>
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-left
+        className="flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium w-full text-left
           text-sidebar-text hover:bg-sidebar-hover hover:text-white transition-colors duration-150"
       >
         {item.icon}
@@ -76,7 +86,7 @@ function NavGroup({ item, pathname, setSidebarOpen }) {
                 key={child.href}
                 href={child.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium no-underline
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-sm text-sm font-medium no-underline
                   transition-colors duration-150
                   ${active
                     ? "bg-sidebar-active text-white"
@@ -106,13 +116,18 @@ export default function AdminLayout({ children }) {
     if (!user) { router.push("/admin/login"); return }
     if (user.user_type !== "admin") { router.push("/admin/login"); return }
 
-    const academicRoutes = ["/admin/students", "/admin/teachers", "/admin/classes", "/admin/schedule", "/admin/results", "/admin/attendance", "/admin/exams"]
+    const academicRoutes = ["/admin/students", "/admin/teachers", "/admin/classes", "/admin/schedule", "/admin/results", "/admin/attendance", "/admin/exams", "/admin/password-reset-requests"]
     if (academicRoutes.some(r => pathname.startsWith(r)) && !can("academic")) {
       router.push("/admin/dashboard"); return
     }
 
     const cmsRoutes = ["/admin/notices", "/admin/events", "/admin/testimonials"]
     if (cmsRoutes.some(r => pathname.startsWith(r)) && !can("cms")) {
+      router.push("/admin/dashboard"); return
+    }
+
+    const admissionsRoutes = ["/admin/admissions"]
+    if (admissionsRoutes.some(r => pathname.startsWith(r)) && !can("admissions")) {
       router.push("/admin/dashboard"); return
     }
 
@@ -127,6 +142,8 @@ export default function AdminLayout({ children }) {
     if (item.href === "/admin/settings") {
       return SETTINGS_ROLES.includes(user?.role) ? item : null
     }
+    if (item.href === "/admin/password-reset-requests") return can("academic") ? item : null
+    if (item.href === "/admin/admissions") return can("admissions") ? item : null
     if (!item.children) return item
     if (item.label === "Academic") return can("academic") ? item : null
     if (item.label === "Content") return can("cms") ? item : null
@@ -142,11 +159,13 @@ export default function AdminLayout({ children }) {
 
   if (loading || !user) return null
 
-  const academicRoutes = ["/admin/students", "/admin/teachers", "/admin/classes", "/admin/schedule", "/admin/results", "/admin/attendance", "/admin/exams"]
+  const academicRoutes = ["/admin/students", "/admin/teachers", "/admin/classes", "/admin/schedule", "/admin/results", "/admin/attendance", "/admin/exams", "/admin/password-reset-requests"]
   const cmsRoutes = ["/admin/notices", "/admin/events", "/admin/testimonials"]
+  const admissionsRoutes = ["/admin/admissions"]
 
   if (academicRoutes.some(r => pathname.startsWith(r)) && !can("academic")) return null
   if (cmsRoutes.some(r => pathname.startsWith(r)) && !can("cms")) return null
+  if (admissionsRoutes.some(r => pathname.startsWith(r)) && !can("admissions")) return null
   if (pathname.startsWith("/admin/settings") && !SETTINGS_ROLES.includes(user.role)) return null
 
   return (
@@ -198,7 +217,7 @@ export default function AdminLayout({ children }) {
                 key={item.href}
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium no-underline
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium no-underline
           transition-colors duration-150
           ${pathname === item.href
                     ? "bg-sidebar-active text-white"
@@ -216,7 +235,7 @@ export default function AdminLayout({ children }) {
         <div className="px-3 py-4 border-t border-white/10">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-white w-full transition-colors duration-150"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-white w-full transition-colors duration-150"
           >
             <LogOut size={18} />
             Logout

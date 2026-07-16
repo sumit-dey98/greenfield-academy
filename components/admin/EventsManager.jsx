@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import {
+  listEvents, createEvent, updateEvent, deleteEvent,
+  listEventImages, addEventImage, deleteEventImage,
+} from "@/lib/api/events"
 import { useAuth } from "@/context/AuthContext"
-import { Calendar, Plus, Pencil, Trash2, X, Save, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { Calendar, Plus, Pencil, Trash2, X, Save, Eye, EyeOff, AlertCircle, Star } from "lucide-react"
 import Input from "@/components/ui/Input"
 import Textarea from "@/components/ui/Textarea"
 import Select from "@/components/ui/Select"
@@ -17,7 +20,7 @@ const CATEGORIES = ["Sports", "Academic", "Cultural", "General"]
 
 const emptyForm = {
   title: "", slug: "", excerpt: "", content: "",
-  category: "General", date: "", cover_image: "", published: false,
+  category: "General", date: "", cover_image: "", published: false, featured: false,
 }
 
 function formatDateForDB(ddmmyyyy) {
@@ -52,12 +55,14 @@ export default function EventsManager() {
   const [modalOpen, setModalOpen] = useState(false)
 
   const fetchEvents = async () => {
-    const { data } = await supabase
-      .from("events")
-      .select("*")
-      .order("date", { ascending: false })
-    if (data) setEvents(data)
-    setLoading(false)
+    try {
+      const page = await listEvents({ limit: 200 })
+      setEvents(page?.items ?? [])
+    } catch (err) {
+      console.error("Failed to load events:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchEvents() }, [])
@@ -92,13 +97,15 @@ export default function EventsManager() {
       date: formatDateForDisplay(event.date),
       cover_image: event.cover_image ?? "",
       published: event.published,
+      featured: event.featured,
     })
-    const { data: imgs } = await supabase
-      .from("event_images")
-      .select("*")
-      .eq("event_id", event.id)
-      .order("sort_order", { ascending: true })
-    setImageUrls(imgs?.map(i => i.url) ?? [""])
+    try {
+      const imgs = await listEventImages(event.id)
+      setImageUrls(imgs?.length ? imgs.map(i => i.url) : [""])
+    } catch (err) {
+      console.error("Failed to load event images:", err)
+      setImageUrls([""])
+    }
     setErrors({})
     setModalOpen(true)
   }
@@ -117,6 +124,7 @@ export default function EventsManager() {
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setSaving(true)
 
+    // author_id is set server-side from the logged-in account; only author_name is sent.
     const payload = {
       title: form.title.trim(),
       slug: form.slug.trim(),
@@ -126,59 +134,69 @@ export default function EventsManager() {
       date: formatDateForDB(form.date),
       cover_image: form.cover_image.trim() || null,
       published: publish !== null ? publish : form.published,
+      featured: form.featured,
       ...(editing ? {} : {
-        author_id: isSuperAdmin ? (superAdminName ?? "Super Admin") : (user?.id ?? null),
         author_name: isSuperAdmin ? (superAdminName ?? "Super Admin") : (user?.name ?? "Admin"),
       }),
     }
-    let eventId = editing
-    let error
 
-    if (editing) {
-      const res = await supabase.from("events").update(payload).eq("id", editing)
-      error = res.error
-    } else {
-      eventId = `evt_${Date.now()}`
-      const res = await supabase.from("events").insert({ id: eventId, ...payload })
-      error = res.error
+    try {
+      const saved = editing
+        ? await updateEvent(editing, payload)
+        : await createEvent(payload)
+      const eventId = saved?.id ?? editing
+
+      // Replace the gallery images with the current list.
+      const validUrls = imageUrls.map(u => u.trim()).filter(Boolean)
+      const existing = editing ? (await listEventImages(eventId).catch(() => [])) : []
+      for (const img of existing) {
+        await deleteEventImage(eventId, img.id)
+      }
+      for (let i = 0; i < validUrls.length; i++) {
+        await addEventImage(eventId, { url: validUrls[i], sort_order: i })
+      }
+
+      setModalOpen(false)
+      fetchEvents()
+    } catch (err) {
+      console.error("Failed to save event:", err)
+      setErrors({ save: err?.message || "Could not save the event." })
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
-    if (error) return
-
-    const validUrls = imageUrls.filter(u => u.trim())
-    if (validUrls.length > 0) {
-      await supabase.from("event_images").delete().eq("event_id", eventId)
-      await supabase.from("event_images").insert(
-        validUrls.map((url, i) => ({
-          id: `eimg_${eventId}_${i}`,
-          event_id: eventId,
-          url: url.trim(),
-          sort_order: i,
-        }))
-      )
-    }
-
-    setModalOpen(false)
-    fetchEvents()
   }
 
   const handleDelete = async (id) => {
     if (!attemptWrite("cms")) return
     setDeleting(id)
-    const { error } = await supabase.from("events").delete().eq("id", id)
-    if (!error) await supabase.from("event_images").delete().eq("event_id", id)
-    setDeleting(null)
-    fetchEvents()
+    try {
+      await deleteEvent(id) // backend cascades images
+    } catch (err) {
+      console.error("Failed to delete event:", err)
+    } finally {
+      setDeleting(null)
+      fetchEvents()
+    }
   }
 
   const togglePublish = async (event) => {
     if (!attemptWrite("cms")) return
-    await supabase
-      .from("events")
-      .update({ published: !event.published })
-      .eq("id", event.id)
-    fetchEvents()
+    try {
+      await updateEvent(event.id, { published: !event.published })
+      fetchEvents()
+    } catch (err) {
+      console.error("Failed to toggle publish:", err)
+    }
+  }
+
+  const toggleFeatured = async (event) => {
+    if (!attemptWrite("cms")) return
+    try {
+      await updateEvent(event.id, { featured: !event.featured })
+      fetchEvents()
+    } catch (err) {
+      console.error("Failed to toggle featured:", err)
+    }
   }
 
   return (
@@ -217,6 +235,11 @@ export default function EventsManager() {
                   <span className={`badge border ${event.published ? "badge-success" : "badge-warning"}`}>
                     {event.published ? "Published" : "Draft"}
                   </span>
+                  {event.featured && (
+                    <span className="badge badge-warning border flex items-center">
+                      Featured
+                    </span>
+                  )}
                   <span className="badge badge-info border">{event.category}</span>
                   <span className="text-xs text-faint">
                     {new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
@@ -229,21 +252,28 @@ export default function EventsManager() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
+                  onClick={() => toggleFeatured(event)}
+                  title={event.featured ? "Unfeature" : "Feature"}
+                  className={`p-2 rounded-sm transition-colors hover:bg-surface-2 ${event.featured ? "text-primary" : "text-muted"}`}
+                >
+                  <Star size={15} fill={event.featured ? "currentColor" : "none"} />
+                </button>
+                <button
                   onClick={() => togglePublish(event)}
-                  className={`p-2 rounded-md transition-colors ${event.published ? "text-warning hover:bg-surface-2" : "text-success hover:bg-surface-2"}`}
+                  className={`p-2 rounded-sm transition-colors ${event.published ? "text-warning hover:bg-surface-2" : "text-success hover:bg-surface-2"}`}
                 >
                   {event.published ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
                 <button
                   onClick={() => openEdit(event)}
-                  className="p-2 rounded-md transition-colors hover:bg-surface-2 text-muted hover:text-text"
+                  className="p-2 rounded-sm transition-colors hover:bg-surface-2 text-muted hover:text-text"
                 >
                   <Pencil size={15} />
                 </button>
                 <button
                   onClick={() => handleDelete(event.id)}
                   disabled={deleting === event.id}
-                  className="p-2 rounded-md transition-colors disabled:opacity-40 hover:bg-surface-2 text-muted hover:text-danger"
+                  className="p-2 rounded-sm transition-colors disabled:opacity-40 hover:bg-surface-2 text-muted hover:text-danger"
                 >
                   {deleting === event.id
                     ? <span className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-danger/30 border-t-danger block" />
@@ -260,7 +290,7 @@ export default function EventsManager() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editing ? "Edit Event" : "New Event"}
-        width="max-w-3xl"
+        width="max-w-5xl"
       >
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -271,6 +301,16 @@ export default function EventsManager() {
             <Select label="Category" options={CATEGORIES} value={form.category} onChange={v => set("category", v)} searchable={false} />
             <DatePicker label="Event Date" required value={form.date} onChange={v => set("date", v)} error={errors.date} />
             <Input label="Cover Image URL" value={form.cover_image} onChange={e => set("cover_image", e.target.value)} placeholder="https://..." />
+            <label className="flex items-center gap-2 text-sm text-text cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.featured}
+                onChange={e => set("featured", e.target.checked)}
+                className="w-4 h-4 accent-primary cursor-pointer"
+              />
+              Featured
+              <span className="text-xs text-faint font-normal">(shown in the homepage/latest-events carousel)</span>
+            </label>
             <div className="sm:col-span-2">
               <Textarea label="Excerpt" required rows={2} value={form.excerpt} onChange={e => set("excerpt", e.target.value)} error={errors.excerpt} placeholder="Short description for event cards..." />
             </div>
@@ -314,7 +354,7 @@ export default function EventsManager() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border flex-wrap">
+          <div className="flex gap-3 pt-5 border-t border-border flex-wrap">
             <button onClick={() => handleSave()} disabled={saving} className="btn btn-primary disabled:opacity-60">
               {saving
                 ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

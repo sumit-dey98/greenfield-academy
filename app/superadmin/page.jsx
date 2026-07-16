@@ -2,21 +2,20 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/context/AuthContext"
 
 export default function SuperadminRoot() {
   const router = useRouter()
+  const { user, loading } = useAuth()
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        router.push("/superadmin/dashboard")
-      } else {
-        router.push("/superadmin/login")
-      }
-    })
-    return () => subscription.unsubscribe()
-  }, [])
+    if (loading) return
+    if (user?.role === "super_admin") {
+      router.replace("/superadmin/dashboard")
+    } else {
+      router.replace("/superadmin/login")
+    }
+  }, [user, loading])
 
   return null
 }

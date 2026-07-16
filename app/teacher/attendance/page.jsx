@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getMyClass, getMyAttendance, markAttendance } from "@/lib/api/teachers"
 import { useAuth } from "@/context/AuthContext"
 import { CalendarCheck, CheckCircle, Save, Users } from "lucide-react"
 import DatePicker from "@/components/ui/DatePicker"
@@ -37,17 +37,18 @@ export default function TeacherAttendance() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  // Fetch students once
+  // Fetch students once (homeroom roster)
   useEffect(() => {
     if (!user) return
     const fetchStudents = async () => {
-      const { data } = await supabase
-        .from("students")
-        .select("*")
-        .eq("class_id", user.class_id)
-        .order("roll", { ascending: true })
-      if (data) setStudents(data)
-      setLoading(false)
+      try {
+        const roster = await getMyClass()
+        setStudents(roster?.students ?? [])
+      } catch (err) {
+        if (err?.status !== 404) console.error("Failed to load class:", err)
+      } finally {
+        setLoading(false)
+      }
     }
     fetchStudents()
   }, [user])
@@ -57,22 +58,20 @@ export default function TeacherAttendance() {
     if (!user || !date || students.length === 0) return
     const fetchAttendance = async () => {
       const dbDate = formatDateForDB(date)
-      const ids = students.map(s => s.id)
-      const { data } = await supabase
-        .from("attendance")
-        .select("*")
-        .in("student_id", ids)
-        .eq("date", dbDate)
-
-      const attMap = {}
-      const existMap = {}
-        ; (data ?? []).forEach(row => {
+      try {
+        const page = await getMyAttendance({ from_date: dbDate, to_date: dbDate, limit: 200 })
+        const attMap = {}
+        const existMap = {}
+        ;(page?.items ?? []).forEach(row => {
           attMap[row.student_id] = row.status
           existMap[row.student_id] = row.id
         })
-      setAttendance(attMap)
-      setExisting(existMap)
-      setSaved(false)
+        setAttendance(attMap)
+        setExisting(existMap)
+        setSaved(false)
+      } catch (err) {
+        console.error("Failed to load attendance:", err)
+      }
     }
     fetchAttendance()
   }, [date, students])
@@ -93,30 +92,20 @@ export default function TeacherAttendance() {
     setSaving(true)
     const dbDate = formatDateForDB(date)
 
-    const rows = students.map(s => ({
-      id: existing[s.id] ?? `att_${s.id}_${dbDate}`,
+    const records = students.map(s => ({
       student_id: s.id,
-      date: dbDate,
       status: attendance[s.id] ?? "absent",
     }))
 
-    const { error } = await supabase
-      .from("attendance")
-      .upsert(rows, { onConflict: "student_id,date" })
-
-    if (!error) {
+    try {
+      // Bulk insert-or-update for the whole class on this date (server computes row ids).
+      await markAttendance({ date: dbDate, records })
       setSaved(true)
-      // refresh existing IDs
-      const { data } = await supabase
-        .from("attendance")
-        .select("*")
-        .in("student_id", students.map(s => s.id))
-        .eq("date", dbDate)
-      const existMap = {}
-        ; (data ?? []).forEach(row => { existMap[row.student_id] = row.id })
-      setExisting(existMap)
+    } catch (err) {
+      console.error("Failed to save attendance:", err)
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const markedCount = Object.keys(attendance).length

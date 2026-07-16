@@ -21,6 +21,8 @@ greenfield-academy
 │   │   ├── notices
 │   │   │   └── page.jsx
 │   │   ├── page.jsx
+│   │   ├── password-reset-requests
+│   │   │   └── page.jsx
 │   │   ├── results
 │   │   │   └── page.jsx
 │   │   ├── schedule
@@ -41,8 +43,10 @@ greenfield-academy
 │   ├── events
 │   │   ├── [slug]
 │   │   │   └── page.jsx
+│   │   ├── faculty
 │   │   └── page.jsx
 │   ├── faculty
+│   │   ├── loading.jsx
 │   │   └── page.jsx
 │   ├── favicon.ico
 │   ├── globals.css
@@ -82,6 +86,8 @@ greenfield-academy
 │   │   ├── notices
 │   │   │   └── page.jsx
 │   │   ├── page.jsx
+│   │   ├── password-reset-requests
+│   │   │   └── page.jsx
 │   │   ├── results
 │   │   │   └── page.jsx
 │   │   ├── schedule
@@ -125,6 +131,7 @@ greenfield-academy
 │   │   ├── EventsManager.jsx
 │   │   ├── ExamsManager.jsx
 │   │   ├── NoticesManager.jsx
+│   │   ├── PasswordResetRequestsManager.jsx
 │   │   ├── ResultsManager.jsx
 │   │   ├── ScheduleManager.jsx
 │   │   ├── SettingsManager.jsx
@@ -163,12 +170,34 @@ greenfield-academy
 │   └── AuthContext.jsx
 ├── db_backup
 │   ├── constraints.sql
+│   ├── data.sql
 │   ├── policies.sql
 │   ├── readme.md
 │   └── tables.sql
 ├── eslint.config.js
 ├── jsconfig.json
 ├── lib
+│   ├── api
+│   │   ├── adminPeople.js
+│   │   ├── admission.js
+│   │   ├── attendance.js
+│   │   ├── auth.js
+│   │   ├── classes.js
+│   │   ├── client.js
+│   │   ├── config.js
+│   │   ├── events.js
+│   │   ├── exams.js
+│   │   ├── notices.js
+│   │   ├── public.js
+│   │   ├── resetRequests.js
+│   │   ├── results.js
+│   │   ├── schedule.js
+│   │   ├── students.js
+│   │   ├── subjects.js
+│   │   ├── teachers.js
+│   │   ├── testimonials.js
+│   │   ├── tokens.js
+│   │   └── users.js
 │   ├── services
 │   │   └── grading.js
 │   └── supabase.js

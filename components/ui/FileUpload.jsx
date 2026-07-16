@@ -2,6 +2,7 @@
 
 import { forwardRef, useRef, useState } from "react"
 import { Upload, FileText, X, AlertCircle, Image, File } from "lucide-react"
+import Tooltip from "@/components/ui/Tooltip"
 
 function fileIcon(file) {
   if (file.type.startsWith("image/")) return <Image size={15} className="text-primary" />
@@ -76,9 +77,10 @@ const FileUpload = forwardRef(function FileUpload(
   return (
     <div className="flex flex-col gap-1.5 w-full">
       {label && (
-        <label className="text-xs font-semibold text-text">
+        <label className="text-xs font-semibold text-text flex items-center gap-1.5">
           {label}
           {required && <span className="text-danger ml-0.5">*</span>}
+          {hint && <Tooltip text={hint} />}
         </label>
       )}
 
@@ -88,7 +90,7 @@ const FileUpload = forwardRef(function FileUpload(
         onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        className={`flex flex-col items-center justify-center gap-2 px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 cursor-pointer
+        className={`flex flex-col items-center justify-center gap-2 px-6 py-8 border-2 border-dashed rounded-sm transition-all duration-200 cursor-pointer
           ${dragging
             ? "border-primary bg-primary-light"
             : displayError
@@ -127,7 +129,7 @@ const FileUpload = forwardRef(function FileUpload(
           {files.map((file, i) => (
             <div
               key={i}
-              className="flex items-center justify-between px-3 py-2.5 bg-surface border border-border rounded-lg"
+              className="flex items-center justify-between px-3 py-2.5 bg-surface border border-border rounded-sm"
             >
               <div className="flex items-center gap-2 min-w-0">
                 {fileIcon(file)}
@@ -149,9 +151,6 @@ const FileUpload = forwardRef(function FileUpload(
         </div>
       )}
 
-      {hint && !displayError && (
-        <p className="text-xs text-faint">{hint}</p>
-      )}
       {displayError && (
         <p className="text-xs text-danger flex items-center gap-1">
           <AlertCircle size={11} className="shrink-0" />
