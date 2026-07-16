@@ -1,12 +1,12 @@
 import Link from "next/link"
 import { GraduationCap, MapPin, Phone, Mail } from "lucide-react"
+import { API_BASE } from "@/lib/api/config"
 
 const links = {
   "Quick Links": [
     { label: "Home", href: "/" },
     { label: "About", href: "/about" },
     { label: "Admission", href: "/admission" },
-    { label: "Track Application", href: "/admission/track" },
     { label: "Student Portal", href: "/student/dashboard" },
     { label: "Teacher Portal", href: "/teacher/dashboard" },
   ],
@@ -75,6 +75,9 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="border-t border-white/10 pt-6 flex justify-between items-center flex-wrap gap-4 text-xs opacity-50">
           <span>© {new Date().getFullYear()} Greenfield Academy. All rights reserved.</span>
+          <span>
+            <a href={`${API_BASE}/docs`} target="_blank" rel="noopener noreferrer" className="underline hover:text-bg text-inherit">API Docs</a>
+          </span>
           <span >
             Built by  <Link href="https://sumithilloldey.vercel.app" target="_blank" className="underline hover:text-bg">Sumit Hillol Dey </Link>
           </span>
