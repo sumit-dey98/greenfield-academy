@@ -2,6 +2,7 @@
 
 import { forwardRef, useRef, useState } from "react"
 import { Upload, FileText, X, AlertCircle, Image, File } from "lucide-react"
+import Tooltip from "@/components/ui/Tooltip"
 
 function fileIcon(file) {
   if (file.type.startsWith("image/")) return <Image size={15} className="text-primary" />
@@ -76,9 +77,10 @@ const FileUpload = forwardRef(function FileUpload(
   return (
     <div className="flex flex-col gap-1.5 w-full">
       {label && (
-        <label className="text-xs font-semibold text-text">
+        <label className="text-xs font-semibold text-text flex items-center gap-1.5">
           {label}
           {required && <span className="text-danger ml-0.5">*</span>}
+          {hint && <Tooltip text={hint} />}
         </label>
       )}
 
@@ -149,9 +151,6 @@ const FileUpload = forwardRef(function FileUpload(
         </div>
       )}
 
-      {hint && !displayError && (
-        <p className="text-xs text-faint">{hint}</p>
-      )}
       {displayError && (
         <p className="text-xs text-danger flex items-center gap-1">
           <AlertCircle size={11} className="shrink-0" />

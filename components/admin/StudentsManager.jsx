@@ -9,6 +9,7 @@ import {
   CheckCircle, AlertCircle,
 } from "lucide-react"
 import DataTable from "@/components/ui/DataTable"
+import { toLimitOffset } from "@/components/ui/Pagination"
 import SearchBox from "@/components/ui/SearchBox"
 import Select from "@/components/ui/Select"
 import Input from "@/components/ui/Input"
@@ -63,7 +64,6 @@ export default function StudentsManager() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
-  // Classes are a small, fixed list — load once for the filter + form dropdowns.
   useEffect(() => {
     listClasses()
       .then(data => setClasses(data ?? []))
@@ -86,8 +86,7 @@ export default function StudentsManager() {
     setLoading(true)
     try {
       const studentsPage = await listStudents({
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
+        ...toLimitOffset(page, pageSize),
         name: debouncedSearch || undefined,
         class_id: classFilter || undefined,
       })
@@ -102,7 +101,6 @@ export default function StudentsManager() {
 
   useEffect(() => {
     fetchStudents()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, debouncedSearch, classFilter])
 
   const classOptions = [

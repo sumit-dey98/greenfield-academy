@@ -2,20 +2,12 @@
 
 import { useEffect, useState } from "react"
 import { getMeritList, listCycles, updateApplicationStatus, bulkUpdateStatus } from "@/lib/api/admissions"
+import { listClasses } from "@/lib/api/classes"
 import { useAuth } from "@/context/AuthContext"
 import toast from "react-hot-toast"
 import { Award, CheckCircle } from "lucide-react"
 import DataTable from "@/components/ui/DataTable"
 import Select from "@/components/ui/Select"
-
-const CLASSES = [
-  "Class 9 - Section A",
-  "Class 9 - Section B",
-  "Class 10 - Section A",
-  "Class 10 - Section B",
-  "Class 11 - Science",
-  "Class 11 - Commerce",
-]
 
 const statusBadge = {
   submitted: "badge-info",
@@ -43,6 +35,7 @@ export default function MeritListManager() {
   const [cycles, setCycles] = useState([])
   const [cycleId, setCycleId] = useState("")
   const [classFilter, setClassFilter] = useState("")
+  const [classes, setClasses] = useState([])
 
   const [items, setItems] = useState([])
   const [seatsAvailable, setSeatsAvailable] = useState(null)
@@ -58,6 +51,7 @@ export default function MeritListManager() {
         else if (data?.length) setCycleId(data[0].id)
       })
       .catch(err => console.error("Failed to load cycles:", err))
+    listClasses().then(setClasses).catch(err => console.error("Failed to load classes:", err))
   }, [])
 
   const fetchMeritList = async () => {
@@ -78,11 +72,10 @@ export default function MeritListManager() {
 
   useEffect(() => {
     fetchMeritList()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cycleId, classFilter])
 
   const cycleOptions = cycles.map(c => ({ label: `${c.name}${c.is_active ? " (active)" : ""}`, value: c.id }))
-  const classOptions = [{ label: "All Classes", value: "" }, ...CLASSES.map(c => ({ label: c, value: c }))]
+  const classOptions = [{ label: "All Classes", value: "" }, ...classes.map(c => ({ label: c.name, value: c.name }))]
 
   const decide = async (applicationId, status) => {
     if (!attemptWrite("admissions")) return
@@ -189,7 +182,7 @@ export default function MeritListManager() {
           <p className="page-subtitle">Ranked applicants by entrance score for the selected cycle.</p>
         </div>
         {seatsAvailable != null && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-primary-light border border-primary/30 rounded-lg">
+          <div className="flex items-center gap-2 px-4 py-2 bg-primary-light border border-primary/30 rounded-sm">
             <Award size={15} className="text-primary" />
             <span className="text-sm font-semibold text-primary">{seatsAvailable} seats available</span>
           </div>

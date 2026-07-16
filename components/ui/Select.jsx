@@ -3,6 +3,7 @@
 import { forwardRef, useState, useRef, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { ChevronDown, Search, Check, AlertCircle, X } from "lucide-react"
+import Tooltip from "@/components/ui/Tooltip"
 
 const DROPDOWN_HEIGHT = 240
 
@@ -16,9 +17,10 @@ const Select = forwardRef(function Select(
     clearable = true,
     renderValue,
     disabled = false,
-    isPortal = false,
+    isPortal = true,
+    multiple = false,   // if true, `value` is an array and `onChange` receives the updated array
     menuPlacement = "auto",   // "auto" | "top" | "bottom"
-    menuPosition = "absolute",   // "fixed" | "absolute"
+    menuPosition = "fixed",   // "fixed" | "absolute"
     className = "",
     ...props
   },
@@ -31,8 +33,14 @@ const Select = forwardRef(function Select(
   const dropdownRef = useRef(null)
   const searchRef = useRef(null)
 
-  const selected = options.find(o => (typeof o === "string" ? o : o.value) === value)
+  const selectedValues = multiple ? (Array.isArray(value) ? value : []) : null
+  const isOptionSelected = (optVal) => multiple ? selectedValues.includes(optVal) : optVal === value
+
+  const selected = multiple ? null : options.find(o => (typeof o === "string" ? o : o.value) === value)
   const selectedLabel = selected ? (typeof selected === "string" ? selected : selected.label) : null
+  const selectedMultiOptions = multiple
+    ? options.filter(o => selectedValues.includes(typeof o === "string" ? o : o.value))
+    : []
 
   const filtered = options.filter(o => {
     const lbl = typeof o === "string" ? o : o.label
@@ -40,14 +48,28 @@ const Select = forwardRef(function Select(
   })
 
   const handleSelect = (opt) => {
-    onChange?.(typeof opt === "string" ? opt : opt.value)
+    const optVal = typeof opt === "string" ? opt : opt.value
+    if (multiple) {
+      const next = selectedValues.includes(optVal)
+        ? selectedValues.filter(v => v !== optVal)
+        : [...selectedValues, optVal]
+      onChange?.(next)
+      // Stay open in multi-select mode so several options can be picked in one interaction.
+      return
+    }
+    onChange?.(optVal)
     setOpen(false)
     setQuery("")
   }
 
   const handleClear = (e) => {
     e.stopPropagation()
-    onChange?.("")
+    onChange?.(multiple ? [] : "")
+  }
+
+  const removeOneChip = (e, optVal) => {
+    e.stopPropagation()
+    onChange?.(selectedValues.filter(v => v !== optVal))
   }
 
   const computeStyle = () => {
@@ -75,7 +97,7 @@ const Select = forwardRef(function Select(
       position: "fixed",
       left: rect.left,
       width: rect.width,
-      zIndex: 9999,
+      zIndex: 999,
       ...(above
         ? { bottom: window.innerHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }
@@ -112,7 +134,8 @@ const Select = forwardRef(function Select(
     if (!open || menuPosition === "absolute") return
     const handler = (e) => {
       if (dropdownRef.current?.contains(e.target)) return
-      setDropStyle(computeStyle())
+      setOpen(false)
+      setQuery("")
     }
     window.addEventListener("scroll", handler, true)
     return () => window.removeEventListener("scroll", handler, true)
@@ -166,7 +189,7 @@ const Select = forwardRef(function Select(
           filtered.map((opt, i) => {
             const optVal = typeof opt === "string" ? opt : opt.value
             const optLabel = typeof opt === "string" ? opt : opt.label
-            const isActive = optVal === value
+            const isActive = isOptionSelected(optVal)
             return (
               <button
                 key={i}
@@ -193,8 +216,9 @@ const Select = forwardRef(function Select(
   return (
     <div className={`flex flex-col w-full ${wrapperClass}`}>
       {label && (
-        <label className="text-xs font-semibold text-text mb-1.5">
+        <label className="text-xs font-semibold text-text mb-1.5 flex items-center gap-1.5">
           {label}{required && <span className="text-danger ml-0.5">*</span>}
+          {hint && <Tooltip text={hint} />}
         </label>
       )}
 
@@ -209,6 +233,7 @@ const Select = forwardRef(function Select(
         onClick={handleToggle}
         onKeyDown={handleKeyDown}
         className={`input flex items-center justify-between gap-2 text-left cursor-pointer
+          ${multiple ? "min-h-[2.5rem] h-auto py-1.5" : ""}
           ${error ? "border-danger" : ""}
           ${disabled ? "opacity-60 cursor-not-allowed" : ""}
           ${className}`}
@@ -216,13 +241,34 @@ const Select = forwardRef(function Select(
         aria-expanded={open}
         {...props}
       >
-        <span className={selectedLabel ? "text-text" : "text-faint"}>
-          {selectedLabel
-            ? (renderValue ? renderValue(selected) : selectedLabel)
-            : placeholder}
-        </span>
+        {multiple ? (
+          selectedMultiOptions.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 flex-1">
+              {selectedMultiOptions.map(o => {
+                const optVal = typeof o === "string" ? o : o.value
+                const optLabel = typeof o === "string" ? o : o.label
+                return (
+                  <span key={optVal} className="badge badge-info gap-1">
+                    {optLabel}
+                    {!disabled && (
+                      <X size={11} className="cursor-pointer" onClick={(e) => removeOneChip(e, optVal)} />
+                    )}
+                  </span>
+                )
+              })}
+            </div>
+          ) : (
+            <span className="text-faint">{placeholder}</span>
+          )
+        ) : (
+          <span className={selectedLabel ? "text-text" : "text-faint"}>
+            {selectedLabel
+              ? (renderValue ? renderValue(selected) : selectedLabel)
+              : placeholder}
+          </span>
+        )}
         <div className="flex items-center gap-1 shrink-0">
-          {value && clearable && (
+          {((multiple && selectedValues.length > 0) || (!multiple && value)) && clearable && (
             <span onClick={handleClear} className="text-faint hover:text-muted transition-colors p-0.5 rounded cursor-pointer">
               <X size={13} />
             </span>
@@ -238,7 +284,6 @@ const Select = forwardRef(function Select(
           : dropdownNode
       }
 
-      {hint && !error && <p className="text-xs text-faint mt-1">{hint}</p>}
       {error && (
         <p className="text-xs text-danger flex items-center gap-1 mt-1">
           <AlertCircle size={11} className="shrink-0" />{error}

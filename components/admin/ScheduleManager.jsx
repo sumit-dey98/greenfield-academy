@@ -109,6 +109,21 @@ export default function ScheduleManager() {
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
+  useEffect(() => {
+    if (!activeCell) return
+    const handler = (e) => {
+      if (
+        popoverRef.current?.contains(e.target) ||
+        e.target.closest?.("[data-select-dropdown]") ||
+        e.target.closest?.("[data-datepicker-calendar]")
+      ) return
+      setActiveCell(null)
+      setConflict(null)
+    }
+    window.addEventListener("scroll", handler, true)
+    return () => window.removeEventListener("scroll", handler, true)
+  }, [activeCell])
+
   const getSlot = (periodId, day) =>
     schedule.find(s =>
       s.class_id === selectedClass &&
@@ -311,7 +326,7 @@ export default function ScheduleManager() {
         </div>
 
         {showAddPeriod && (
-          <div className="flex flex-col xl:flex-row xl:justify-between gap-3 flex-1 min-w-0 p-3 bg-surface-2 rounded-lg border border-border">
+          <div className="flex flex-col xl:flex-row xl:justify-between gap-3 flex-1 min-w-0 p-3 bg-surface-2 rounded-md border border-border">
             {/* Time pickers */}
             <div className="flex items-end gap-2 flex-wrap md:flex-nowrap">
               <TimePicker className="min-w-44" label="Start" value={newPeriod.start_time} onChange={v => setNewPeriod(f => ({ ...f, start_time: v }))} />
@@ -423,13 +438,13 @@ export default function ScheduleManager() {
           <table className="w-full border-collapse" style={{ minWidth: "700px" }}>
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wide bg-surface2 w-32">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-bg uppercase tracking-wide bg-surface2 w-32 bg-text rounded-tl-md">
                   Period
                 </th>
                 {DAYS.map((day, di) => (
                   <th
                     key={day}
-                    className="text-center px-3 py-3 text-xs font-semibold uppercase tracking-wide bg-surface2"
+                    className="text-center px-3 py-3 text-xs font-semibold uppercase tracking-wide bg-surface2 bg-text last:rounded-tr-md"
                     style={{ color: DAY_COLORS[di] }}
                   >
                     {day}
@@ -439,7 +454,7 @@ export default function ScheduleManager() {
             </thead>
             <tbody>
               {periods.map(period => (
-                <tr key={period.id} className={`border-b border-border last:border-0 ${period.is_break ? "bg-surface2 opacity-70" : ""}`}>
+                <tr key={period.id} className={`border-b border-border last:border-0 ${period.is_break ? "bg-surface-2 opacity-70" : ""}`}>
                   <td className="px-4 py-3 shrink-0 w-32">
                     {period.is_break ? (
                       <div className="flex flex-col gap-0.5">
@@ -529,7 +544,7 @@ export default function ScheduleManager() {
       {activeCell && (
         <div
           ref={popoverRef}
-          className="fixed z-50 bg-surface border border-border rounded-xl shadow-xl p-4 flex flex-col gap-3"
+          className="fixed z-50 bg-surface border-2 border-border rounded-sm shadow-xl p-4 flex flex-col gap-3"
           style={{
             top: popoverPos.top,
             left: popoverPos.left,

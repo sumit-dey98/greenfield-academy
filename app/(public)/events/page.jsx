@@ -1,36 +1,80 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { getEvents } from "@/lib/api/public"
+import { getEvents, getFeaturedEvents } from "@/lib/api/public"
 import Link from "next/link"
 import { Calendar, Tag, ArrowRight } from "lucide-react"
 import Carousel from "@/components/ui/Carousel"
+import Pagination, { toLimitOffset } from "@/components/ui/Pagination"
 
 const CATEGORIES = ["All", "Sports", "Academic", "Cultural", "General"]
+const DEFAULT_PAGE_SIZE = 10
+const INITIAL_PREVIEW_SIZE = 6
 
 export default function EventsPage() {
+  const [latest, setLatest] = useState([])
+  const [latestLoading, setLatestLoading] = useState(true)
   const [events, setEvents] = useState([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState("All")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
+  const [paginationActive, setPaginationActive] = useState(false)
+
+  // Hero carousel: featured events (capped at 6 server-side), fetched once.
   useEffect(() => {
     const load = async () => {
       try {
-        const page = await getEvents({ limit: 200 })
-        setEvents(page?.items ?? [])
+        const result = await getFeaturedEvents()
+        setLatest(result ?? [])
       } catch (err) {
-        console.error("Failed to load events:", err)
+        console.error("Failed to load featured events:", err)
       } finally {
-        setLoading(false)
+        setLatestLoading(false)
       }
     }
     load()
   }, [])
 
-  const latest = events.slice(0, 3)
-  const filtered = activeCategory === "All"
-    ? events
-    : events.filter(e => e.category === activeCategory)
+  // Category change: reset back to the collapsed preview.
+  useEffect(() => {
+    setPage(1)
+    setPaginationActive(false)
+  }, [activeCategory])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      try {
+        const result = await getEvents({
+          ...(paginationActive ? toLimitOffset(page, pageSize) : { limit: INITIAL_PREVIEW_SIZE, offset: 0 }),
+          category: activeCategory === "All" ? undefined : activeCategory,
+        })
+        if (cancelled) return
+        setEvents(result?.items ?? [])
+        setTotal(result?.total ?? 0)
+      } catch (err) {
+        console.error("Failed to load events:", err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [activeCategory, page, pageSize, paginationActive])
+
+  const handlePageSizeChange = (size) => {
+    setPageSize(size)
+    setPage(1)
+  }
+
+  const handleLoadMore = () => {
+    setPage(1)
+    setPaginationActive(true)
+  }
 
   const categoryColor = {
     Sports: { bg: "#d1fae5", color: "#065f46" },
@@ -43,7 +87,7 @@ export default function EventsPage() {
     <>
       {/* Hero carousel */}
         <div className="relative">
-          {loading ? (
+          {latestLoading ? (
             <div className="w-full bg-surface-2 animate-pulse h-80 md:h-[600px]" />
           ) : (
             <Carousel
@@ -58,7 +102,7 @@ export default function EventsPage() {
           <div className="absolute top-0 left-0 right-0 px-6 pt-8 z-10 pointer-events-none">
             <div className="max-w-6xl mx-auto">
               <div className="inline-flex items-center gap-2 bg-primary text-white px-4 py-1.5 rounded-full text-xs font-semibold">
-                Latest Events
+                Featured Events
               </div>
             </div>
           </div>
@@ -73,7 +117,7 @@ export default function EventsPage() {
               <div>
                 <h2 className="text-2xl font-bold text-text">All Events</h2>
                 <p className="text-sm text-muted mt-1">
-                  {filtered.length} event{filtered.length !== 1 ? "s" : ""}
+                  {total} event{total !== 1 ? "s" : ""}
                   {activeCategory !== "All" ? ` in ${activeCategory}` : ""}
                 </p>
               </div>
@@ -101,7 +145,7 @@ export default function EventsPage() {
                   <div key={i} className="card h-72 bg-surface-2 animate-pulse" />
                 ))}
               </div>
-            ) : filtered.length === 0 ? (
+            ) : events.length === 0 ? (
               <div className="card flex flex-col items-center justify-center py-10 md:py-20 gap-3 text-center">
                 <Tag size={36} className="text-faint" />
                 <p className="text-muted text-sm">No events found in this category.</p>
@@ -113,8 +157,9 @@ export default function EventsPage() {
                 </button>
               </div>
             ) : (
+              <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filtered.map(event => {
+                {events.map(event => {
                   const cat = categoryColor[event.category] ?? categoryColor.General
                   return (
                     <Link
@@ -161,6 +206,31 @@ export default function EventsPage() {
                   )
                 })}
               </div>
+
+              {!paginationActive && events.length < total && (
+                <button
+                  onClick={handleLoadMore}
+                  className="btn btn-outline justify-center w-fit mx-auto"
+                >
+                  Load more
+                  {/* <span className="text-xs text-faint ml-1">
+                    ({total - events.length} remaining)
+                  </span> */}
+                </button>
+              )}
+
+              {paginationActive && total > 0 && (
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  total={total}
+                  onPageChange={setPage}
+                  onPageSizeChange={handlePageSizeChange}
+                  itemLabel="events"
+                  className="border border-border rounded-md bg-text"
+                />
+              )}
+              </>
             )}
           </div>
         </section>

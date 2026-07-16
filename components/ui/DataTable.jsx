@@ -1,17 +1,10 @@
 'use client'
 
 import { useState, useRef } from "react"
-import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight } from "lucide-react"
-import Select from "@/components/ui/Select"
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import Pagination from "@/components/ui/Pagination"
 
 const MIN_COL_WIDTH = 60
-
-const PAGE_SIZE_OPTIONS = [
-  { label: "10", value: "10" },
-  { label: "20", value: "20" },
-  { label: "50", value: "50" },
-  { label: "100", value: "100" },
-]
 
 export default function DataTable({
   columns = [],
@@ -20,10 +13,6 @@ export default function DataTable({
   loading = false,
   emptyMessage = "No records found.",
   // --- Server-driven pagination (optional) ---
-  // When `serverMode` is set, the component renders `data` as-is (the current page,
-  // already fetched from the server) and delegates page/page-size changes to the
-  // parent via callbacks. `total` is the full server-side row count. Sorting is
-  // disabled in this mode (the server owns row order).
   serverMode = false,
   total = 0,
   page: serverPage = 1,
@@ -64,13 +53,11 @@ export default function DataTable({
 
   // In server mode `total` is the full row count; `sorted` is just the current page.
   const rowCount = serverMode ? total : sorted.length
-  const totalPages = Math.max(1, Math.ceil(rowCount / currentPageSize))
   const paginated = serverMode
     ? sorted
     : sorted.slice((page - 1) * currentPageSize, page * currentPageSize)
 
-  const handlePageSizeChange = (v) => {
-    const size = Number(v)
+  const handlePageSizeChange = (size) => {
     setCurrentPageSize(size)
     setPage(1)
     if (serverMode) onPageSizeChange?.(size)
@@ -114,14 +101,6 @@ export default function DataTable({
       ? <ChevronUp size={13} className="text-primary" />
       : <ChevronDown size={13} className="text-primary" />
   }
-
-  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
-    .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-    .reduce((acc, p, idx, arr) => {
-      if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...")
-      acc.push(p)
-      return acc
-    }, [])
 
   return (
     <div className="p-0 flex flex-col table-wrapper">
@@ -192,65 +171,14 @@ export default function DataTable({
       </div>
 
       {!loading && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border shrink-0 flex-wrap gap-3 bg-text rounded-b-sm">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-surface-2">
-              {rowCount > 0 ? (
-                <>
-                  Showing{" "}
-                  <span className="font-medium text-surface">
-                    {(page - 1) * currentPageSize + 1}–{Math.min(page * currentPageSize, rowCount)}
-                  </span>
-                  {" "}of{" "}
-                  <span className="font-medium text-surface">{rowCount}</span>
-                  {" "}records
-                </>
-              ) : (
-                "Showing 0 of 0 records"
-              )}
-            </span>
-            <div className="w-20">
-              <Select
-                options={PAGE_SIZE_OPTIONS}
-                value={String(currentPageSize)}
-                onChange={handlePageSizeChange}
-                searchable={false}
-                clearable={false}
-                className="h-8"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 flex-wrap">
-            <button onClick={() => setPage(1)} disabled={page === 1}
-              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              <ChevronsLeft size={15} />
-            </button>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              <ChevronLeft size={15} />
-            </button>
-            {pageNumbers.map((p, i) =>
-              p === "..." ? (
-                <span key={`ellipsis-${i}`} className="px-1 text-xs text-faint">…</span>
-              ) : (
-                <button key={p} onClick={() => setPage(p)}
-                  className={`p-1 h-6 w-6 flex items-center justify-center rounded text-xs border transition-colors
-                    ${page === p ? "bg-primary text-white border-primary" : "border-border bg-surface text-muted hover:text-text"}`}>
-                  {p}
-                </button>
-              )
-            )}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              <ChevronRight size={15} />
-            </button>
-            <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
-              className="p-1 h-7 w-7 flex items-center justify-center rounded text-xs border border-border bg-surface text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              <ChevronsRight size={15} />
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={page}
+          pageSize={currentPageSize}
+          total={rowCount}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          className="border-t border-border shrink-0 bg-text rounded-b-sm"
+        />
       )}
     </div>
   )

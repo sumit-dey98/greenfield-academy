@@ -1,37 +1,68 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useRef } from "react"
+import { createPortal } from "react-dom"
 import { Info } from "lucide-react"
 
-// Small hover/focus tooltip, triggered by an info icon. Use next to a label instead of
-// a persistent hint line when the text is supplementary, not a validation/help message.
+const WIDTH = 224
+
 export default function Tooltip({ text, className = "" }) {
   const [open, setOpen] = useState(false)
+  const [style, setStyle] = useState({})
+  const triggerRef = useRef(null)
+  const ariaLabel = typeof text === "string" ? text : "More information"
+
+  const computeStyle = () => {
+    if (!triggerRef.current) return {}
+    const rect = triggerRef.current.getBoundingClientRect()
+    const spaceAbove = rect.top
+    const above = spaceAbove > 60
+
+    return {
+      position: "fixed",
+      left: Math.min(Math.max(rect.left + rect.width / 2 - WIDTH / 2, 8), window.innerWidth - WIDTH - 8),
+      width: WIDTH,
+      zIndex: 10000,
+      ...(above
+        ? { bottom: window.innerHeight - rect.top + 8 }
+        : { top: rect.bottom + 8 }
+      ),
+    }
+  }
+
+  const show = () => {
+    setStyle(computeStyle())
+    setOpen(true)
+  }
+  const hide = () => setOpen(false)
 
   return (
     <span
+      ref={triggerRef}
       className={`relative inline-flex items-center ${className}`}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
     >
       <button
         type="button"
         tabIndex={0}
+        onClick={(e) => e.preventDefault()}
         className="text-faint hover:text-muted transition-colors"
-        aria-label={text}
+        aria-label={ariaLabel}
       >
         <Info size={13} />
       </button>
-      {open && (
+      {open && typeof window !== "undefined" && createPortal(
         <span
           role="tooltip"
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 px-3 py-2
-            bg-text text-bg text-xs leading-relaxed rounded-md shadow-lg z-50 pointer-events-none"
+          style={style}
+          className="px-3 py-2 bg-text text-bg text-xs leading-relaxed rounded-sm shadow-lg pointer-events-none"
         >
           {text}
-        </span>
+        </span>,
+        document.body
       )}
     </span>
   )

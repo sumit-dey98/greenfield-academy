@@ -7,6 +7,7 @@ import {
 import { useAuth } from "@/context/AuthContext"
 import { Trash2, RotateCcw, ShieldAlert, X } from "lucide-react"
 import DataTable from "@/components/ui/DataTable"
+import { toLimitOffset } from "@/components/ui/Pagination"
 import SearchBox from "@/components/ui/SearchBox"
 import Select from "@/components/ui/Select"
 import DatePicker from "@/components/ui/DatePicker"
@@ -94,7 +95,7 @@ export default function AuditLogManager() {
   const fetchEntries = async () => {
     setLoading(true)
     try {
-      const params = { limit: pageSize, offset: (page - 1) * pageSize }
+      const params = toLimitOffset(page, pageSize)
       if (action) params.action = action
       if (resourceType) params.resource_type = resourceType
       if (debouncedActor) params.actor_id = debouncedActor
@@ -119,7 +120,6 @@ export default function AuditLogManager() {
 
   useEffect(() => {
     fetchEntries()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, action, resourceType, debouncedActor, debouncedResource, fromDate, toDate])
 
   const resetFilters = () => {
@@ -224,7 +224,7 @@ export default function AuditLogManager() {
       ),
     },
     {
-      key: "created_at", label: "When", sortable: false, width: 170,
+      key: "created_at", label: "Time", sortable: false, width: 170,
       render: (row) => (
         <span className="text-sm text-muted">
           {row.created_at
@@ -248,7 +248,7 @@ export default function AuditLogManager() {
       render: (row) => <span className="text-sm text-text capitalize">{row.resource_type}</span>,
     },
     {
-      key: "resource_id", label: "Resource", sortable: false, width: 220,
+      key: "resource_id", label: "Target", sortable: false, width: 220,
       render: (row) => (
         <div className="min-w-0">
           {row.resource_name ? (
@@ -276,7 +276,7 @@ export default function AuditLogManager() {
       ),
     },
     {
-      key: "actions", label: "", sortable: false, width: 60,
+      key: "actions", label: "Action", sortable: false, width: 60,
       render: (row) => (
         <button
           onClick={(e) => { e.stopPropagation(); openDelete(row) }}
@@ -302,7 +302,7 @@ export default function AuditLogManager() {
         <button
           onClick={openPurge}
           disabled={!toISO(toDate)}
-          className="btn btn-outline text-danger border-danger/40 hover:bg-danger hover:text-white disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-danger"
+          className="btn btn-outline text-danger border-danger hover:border-danger hover:bg-danger hover:text-white disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-danger"
           title={toISO(toDate) ? "Delete all entries older than the 'To' date" : "Set a 'To' date to enable retention cleanup"}
         >
           <ShieldAlert size={15} /> Purge older than “To”

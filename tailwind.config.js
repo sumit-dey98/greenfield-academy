@@ -31,6 +31,11 @@ const config = {
           hover: 'var(--color-primary-hover)',
           light: 'var(--color-primary-light)',
         },
+        accent: {
+          DEFAULT: 'var(--color-accent)',
+          hover: 'var(--color-accent-hover)',
+          light: 'var(--color-accent-light)',
+        },
         success: 'var(--color-success)',
         warning: 'var(--color-warning)',
         danger: 'var(--color-danger)',

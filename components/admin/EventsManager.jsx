@@ -6,7 +6,7 @@ import {
   listEventImages, addEventImage, deleteEventImage,
 } from "@/lib/api/events"
 import { useAuth } from "@/context/AuthContext"
-import { Calendar, Plus, Pencil, Trash2, X, Save, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { Calendar, Plus, Pencil, Trash2, X, Save, Eye, EyeOff, AlertCircle, Star } from "lucide-react"
 import Input from "@/components/ui/Input"
 import Textarea from "@/components/ui/Textarea"
 import Select from "@/components/ui/Select"
@@ -20,7 +20,7 @@ const CATEGORIES = ["Sports", "Academic", "Cultural", "General"]
 
 const emptyForm = {
   title: "", slug: "", excerpt: "", content: "",
-  category: "General", date: "", cover_image: "", published: false,
+  category: "General", date: "", cover_image: "", published: false, featured: false,
 }
 
 function formatDateForDB(ddmmyyyy) {
@@ -97,6 +97,7 @@ export default function EventsManager() {
       date: formatDateForDisplay(event.date),
       cover_image: event.cover_image ?? "",
       published: event.published,
+      featured: event.featured,
     })
     try {
       const imgs = await listEventImages(event.id)
@@ -133,6 +134,7 @@ export default function EventsManager() {
       date: formatDateForDB(form.date),
       cover_image: form.cover_image.trim() || null,
       published: publish !== null ? publish : form.published,
+      featured: form.featured,
       ...(editing ? {} : {
         author_name: isSuperAdmin ? (superAdminName ?? "Super Admin") : (user?.name ?? "Admin"),
       }),
@@ -187,6 +189,16 @@ export default function EventsManager() {
     }
   }
 
+  const toggleFeatured = async (event) => {
+    if (!attemptWrite("cms")) return
+    try {
+      await updateEvent(event.id, { featured: !event.featured })
+      fetchEvents()
+    } catch (err) {
+      console.error("Failed to toggle featured:", err)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
 
@@ -223,6 +235,11 @@ export default function EventsManager() {
                   <span className={`badge border ${event.published ? "badge-success" : "badge-warning"}`}>
                     {event.published ? "Published" : "Draft"}
                   </span>
+                  {event.featured && (
+                    <span className="badge badge-warning border flex items-center">
+                      Featured
+                    </span>
+                  )}
                   <span className="badge badge-info border">{event.category}</span>
                   <span className="text-xs text-faint">
                     {new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
@@ -234,6 +251,13 @@ export default function EventsManager() {
                 </a>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => toggleFeatured(event)}
+                  title={event.featured ? "Unfeature" : "Feature"}
+                  className={`p-2 rounded-sm transition-colors hover:bg-surface-2 ${event.featured ? "text-primary" : "text-muted"}`}
+                >
+                  <Star size={15} fill={event.featured ? "currentColor" : "none"} />
+                </button>
                 <button
                   onClick={() => togglePublish(event)}
                   className={`p-2 rounded-sm transition-colors ${event.published ? "text-warning hover:bg-surface-2" : "text-success hover:bg-surface-2"}`}
@@ -277,6 +301,16 @@ export default function EventsManager() {
             <Select label="Category" options={CATEGORIES} value={form.category} onChange={v => set("category", v)} searchable={false} />
             <DatePicker label="Event Date" required value={form.date} onChange={v => set("date", v)} error={errors.date} />
             <Input label="Cover Image URL" value={form.cover_image} onChange={e => set("cover_image", e.target.value)} placeholder="https://..." />
+            <label className="flex items-center gap-2 text-sm text-text cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.featured}
+                onChange={e => set("featured", e.target.checked)}
+                className="w-4 h-4 accent-primary cursor-pointer"
+              />
+              Featured
+              <span className="text-xs text-faint font-normal">(shown in the homepage/latest-events carousel)</span>
+            </label>
             <div className="sm:col-span-2">
               <Textarea label="Excerpt" required rows={2} value={form.excerpt} onChange={e => set("excerpt", e.target.value)} error={errors.excerpt} placeholder="Short description for event cards..." />
             </div>

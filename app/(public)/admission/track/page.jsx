@@ -62,7 +62,7 @@ export default function AdmissionTrackerEntryPage() {
       <div className="max-w-md mx-auto flex flex-col gap-6">
         <div className="text-center">
           <div className="inline-flex items-center gap-2 bg-primary-light text-primary px-4 py-1.5 rounded-full text-sm font-semibold mb-4 ring-1 ring-primary">
-            <ShieldCheck size={13} />
+            <ShieldCheck size={18} />
             Track Application
           </div>
           <h1 className="text-2xl font-bold text-text mb-2">Check Your Admission Status</h1>

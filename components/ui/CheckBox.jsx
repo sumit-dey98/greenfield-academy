@@ -2,6 +2,7 @@
 
 import { forwardRef } from "react"
 import { Check, AlertCircle } from "lucide-react"
+import Tooltip from "@/components/ui/Tooltip"
 
 const CheckBox = forwardRef(function CheckBox(
   {
@@ -41,13 +42,13 @@ const CheckBox = forwardRef(function CheckBox(
           </div>
         </div>
         {label && (
-          <span className="text-sm text-text leading-snug select-none">{label}</span>
+          <span className="text-sm text-text leading-snug select-none flex items-center gap-1.5">
+            {label}
+            {hint && <Tooltip text={hint} />}
+          </span>
         )}
       </label>
 
-      {hint && !error && (
-        <p className="text-xs text-faint ml-6">{hint}</p>
-      )}
       {error && (
         <p className="text-xs text-danger flex items-center gap-1 ml-6">
           <AlertCircle size={11} className="shrink-0" />

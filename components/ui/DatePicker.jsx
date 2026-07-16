@@ -4,6 +4,7 @@ import { forwardRef, useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { Calendar, ChevronLeft, ChevronRight, AlertCircle, X } from "lucide-react"
 import Select from "@/components/ui/Select"
+import Tooltip from "@/components/ui/Tooltip"
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -96,7 +97,7 @@ function CalendarGrid({ year, month, selected, onSelect, minDate, maxDate, range
               onClick={() => onSelect(date)}
               onMouseEnter={() => onHover?.(date)}
               onMouseLeave={() => onHover?.(null)}
-              className={`flex items-center justify-center h-6 w-6 rounded-md text-[12px] font-medium transition-colors duration-100
+              className={`flex items-center justify-center h-6 w-6 rounded-sm text-[12px] font-medium transition-colors duration-100
                 ${isSelected
                   ? "bg-primary text-white"
                   : inRange
@@ -273,7 +274,7 @@ const DatePicker = forwardRef(function DatePicker(
     disabled = false,
     isPortal = true,
     menuPlacement = "auto",   // "auto" | "top" | "bottom"
-    menuPosition = "absolute",   // "fixed" | "absolute"
+    menuPosition = "fixed",   // "fixed" | "absolute"
     className = "",
     width="w-[220px]",
     ...props
@@ -308,7 +309,7 @@ const DatePicker = forwardRef(function DatePicker(
     return {
       position: "fixed",
       left: rect.left,
-      zIndex: 9999,
+      zIndex: 10000,
       ...(above
         ? { bottom: window.innerHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }
@@ -339,10 +340,13 @@ const DatePicker = forwardRef(function DatePicker(
   }, [open])
 
   useEffect(() => {
+    // Close (rather than reposition) on scroll of any ancestor, e.g. a Modal body.
+    // A portaled calendar can't be clipped by that ancestor's overflow, so if it kept
+    // following the trigger it could visually float over a sticky header instead.
     if (!open || menuPosition === "absolute") return
     const handler = (e) => {
       if (calendarRef.current?.contains(e.target)) return
-      setDropStyle(computeStyle())
+      setOpen(false)
     }
     window.addEventListener("scroll", handler, true)
     return () => window.removeEventListener("scroll", handler, true)
@@ -388,8 +392,9 @@ const DatePicker = forwardRef(function DatePicker(
   return (
     <div className={`flex flex-col w-full ${wrapperClass}`}>
       {label && (
-        <label className="text-xs font-semibold text-text mb-1.5">
+        <label className="text-xs font-semibold text-text mb-1.5 flex items-center gap-1.5">
           {label}{required && <span className="text-danger ml-0.5">*</span>}
+          {hint && <Tooltip text={hint} />}
         </label>
       )}
 
@@ -424,7 +429,6 @@ const DatePicker = forwardRef(function DatePicker(
           : calendarNode
       }
 
-      {hint && !error && <p className="text-xs text-faint">{hint}</p>}
       {error && (
         <p className="text-xs text-danger flex items-center gap-1">
           <AlertCircle size={11} className="shrink-0" />{error}

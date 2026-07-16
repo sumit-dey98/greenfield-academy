@@ -1,6 +1,7 @@
 'use client'
 
 import { ShieldCheck, BookOpenCheck, Users, Bell, Clock, Award } from "lucide-react"
+import Reveal from "@/components/ui/Reveal"
 
 const features = [
   {
@@ -43,27 +44,27 @@ const features = [
 
 export default function Features() {
   return (
-    <section className="relative bg-surface border-t border-surface-2 py-10 md:py-20 px-6 md:px-12 bg-cover bg-top " style={{ backgroundImage: "url('https://images.unsplash.com/photo-1613662449996-35130a75be10?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')" }}>
-      <div className="absolute inset-0 h-full w-full bg-gradient-to-b from-surface-2 to-transparent opacity-15 "></div>
-      <div className="max-w-6xl mx-auto">
+    <section className="relative border-t border-surface-2 py-10 md:py-20 px-6 md:px-12 bg-cover bg-top bg-fixed" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1613662449996-35130a75be10?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')" }}>
+      <div className="absolute inset-0 h-full w-full bg-emerald-950/80"></div>
+      <div className="max-w-6xl mx-auto relative">
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-primary-light text-primary px-4 py-1.5 rounded-full text-sm font-semibold mb-4 ring-1 ring-primary">
+        <Reveal className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 bg-accent-light text-accent-hover px-4 py-1.5 rounded-full text-sm font-semibold mb-4 ring-1 ring-accent">
             Why Choose Us
           </div>
-          <h2 className="text-3xl font-bold text-emerald-950 mb-3">
+          <h2 className="text-3xl font-bold text-white mb-3">
             Everything a student needs to thrive
           </h2>
-          <p className="text-muted text-base max-w-xl mx-auto">
+          <p className="text-emerald-100 text-base max-w-xl mx-auto">
             We combine academic rigor with a supportive environment to help
             every student reach their full potential.
           </p>
-        </div>
+        </Reveal>
 
         {/* Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f, i) => (
-            <div key={i} className="card cursor-default transition-transform duration-200 hover:bg-bg hover:ring-1 hover:ring-surface-2 will-change-auto">
+            <Reveal key={i} delay={(i % 3) * 0.1} className="card cursor-default will-change-auto">
               <div
                 className="inline-flex items-center justify-center w-11 h-11 rounded-lg mb-4"
                 style={{ background: `${f.color}18`, color: f.color, boxShadow: `0 0 1px 1px ${f.color}30` }}
@@ -76,7 +77,7 @@ export default function Features() {
               <p className="text-sm text-muted leading-relaxed">
                 {f.description}
               </p>
-            </div>
+            </Reveal>
           ))}
         </div>
 

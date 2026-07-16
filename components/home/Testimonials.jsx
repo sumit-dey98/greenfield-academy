@@ -5,6 +5,7 @@ import { getTestimonials } from "@/lib/api/public"
 import useEmblaCarousel from "embla-carousel-react"
 import Autoplay from "embla-carousel-autoplay"
 import { ChevronLeft, ChevronRight, Quote } from "lucide-react"
+import Reveal from "@/components/ui/Reveal"
 
 export default function Testimonials({onReady}) {
   const [testimonials, setTestimonials] = useState([])
@@ -63,18 +64,18 @@ export default function Testimonials({onReady}) {
   )
 
   return (
-    <section className="bg-bg border-t border-surface-2 py-10 md:py-20 px-6 md:px-12">
+    <section className="bg-bg py-10 md:py-20 px-6 md:px-12">
       <div className="max-w-6xl mx-auto flex flex-col gap-10">
 
         {/* Header */}
-        <div className="text-center">
+        <Reveal className="text-center">
           <div className="inline-flex items-center gap-2 bg-primary-light text-primary px-4 py-1.5 rounded-full text-sm font-semibold mb-4 ring-1 ring-primary">
             Testimonials
           </div>
           <h2 className="text-3xl font-bold text-text">
             What parents say about us
           </h2>
-        </div>
+        </Reveal>
 
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 w-8 md:w-24 z-10 bg-gradient-to-r from-bg to-transparent" />

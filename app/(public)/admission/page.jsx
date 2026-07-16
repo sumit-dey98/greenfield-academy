@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { getAdmissionStatus, submitApplication, verifyApplicationAccess } from "@/lib/api/public"
+import { getAdmissionStatus, getPublicClasses, submitApplication, verifyApplicationAccess } from "@/lib/api/public"
 import { ApiError } from "@/lib/api/client"
 import toast from "react-hot-toast"
 import Input from "@/components/ui/Input"
@@ -17,15 +17,6 @@ import {
   GraduationCap, Users, FileText,
   CheckCircle, AlertCircle, Lock, ArrowRight,
 } from "lucide-react"
-
-const CLASSES = [
-  "Class 9 - Section A",
-  "Class 9 - Section B",
-  "Class 10 - Section A",
-  "Class 10 - Section B",
-  "Class 11 - Science",
-  "Class 11 - Commerce",
-]
 
 const GENDERS = ["Male", "Female", "Other"]
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]
@@ -95,12 +86,20 @@ function formatDateForDB(ddmmyyyy) {
 export default function AdmissionPage() {
   const [admissionOpen, setAdmissionOpen] = useState(null)
   const [cycleName, setCycleName] = useState(null)
+  const [academicYear, setAcademicYear] = useState(null)
   const [form, setForm] = useState({ contactMethod: "email" })
   const [errors, setErrors] = useState({})
   const [agreed, setAgreed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState(null)
   const [captchaToken, setCaptchaToken] = useState(null)
+  const [classOptions, setClassOptions] = useState([])
+
+  useEffect(() => {
+    getPublicClasses()
+      .then(classes => setClassOptions((classes ?? []).map(c => ({ label: c.name, value: c.name }))))
+      .catch(err => console.error("Failed to load classes:", err))
+  }, [])
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -108,6 +107,7 @@ export default function AdmissionPage() {
         const data = await getAdmissionStatus()
         setAdmissionOpen(data?.value ?? false)
         setCycleName(data?.cycle_name || null)
+        setAcademicYear(data?.academic_year || null)
       } catch (err) {
         console.error("Failed to load admission status:", err)
         setAdmissionOpen(false)
@@ -278,9 +278,11 @@ export default function AdmissionPage() {
                   Admissions are open!
                 </p>
                 <p className="text-sm text-green-700 mt-0.5">
-                  {cycleName
-                    ? `Applications are being accepted for ${cycleName}.`
-                    : "Applications are currently being accepted."}
+                  {academicYear
+                    ? `Applications are being accepted for ${academicYear} academic year.`
+                    : cycleName
+                      ? `Applications are being accepted for ${cycleName}.`
+                      : "Applications are currently being accepted."}
                 </p>
               </div>
             </div>
@@ -321,7 +323,7 @@ export default function AdmissionPage() {
                   {result.message}
                 </p>
               </div>
-              <div className="flex items-center gap-2 bg-surface-2 px-5 py-3 rounded-lg">
+              <div className="flex items-center gap-2 bg-surface-2 px-5 py-3 rounded-sm">
                 <span className="text-xs text-muted">Reference number:</span>
                 <span className="text-sm font-bold text-primary font-mono">
                   {result.reference_number}
@@ -334,9 +336,12 @@ export default function AdmissionPage() {
                 View your admission progress <ArrowRight size={16} />
               </Link>
               <p className="text-xs text-faint max-w-sm">
-                You can view your admission progress at{" "}
-                <span className="font-mono">/admission/{result.reference_number}</span> anytime —
-                save this link, you&apos;ll need to verify with your contact email/phone each time you visit.
+                You can view your admission progress {" "}
+                <Link href={`/admission/${result.reference_number}`} className="font-mono text-primary hover:text-text underline">
+                  here
+                </Link>{" "}
+                anytime — save this link, you&apos;ll need to verify with your contact email/phone
+                each time you visit.
               </p>
             </div>
           ) : (
@@ -401,7 +406,7 @@ export default function AdmissionPage() {
                     <Select
                       label="Applying for Class"
                       required
-                      options={CLASSES}
+                      options={classOptions}
                       value={form.applyingClass ?? ""}
                       onChange={val => set("applyingClass", val)}
                       error={errors.applyingClass}

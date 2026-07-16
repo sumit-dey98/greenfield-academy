@@ -219,7 +219,7 @@ export default function TeacherGradesPage() {
       )}
 
       {selectedExam && examStatus === "ended" && (
-        <div className="flex items-center gap-3 px-5 py-4 bg-surface border border-border rounded-lg">
+        <div className="flex items-center gap-3 px-5 py-4 bg-surface border border-border rounded-md">
           <Lock size={16} className="text-faint shrink-0" />
           <p className="text-sm text-muted">
             This exam has <strong>ended</strong> — grades are locked and cannot be edited.

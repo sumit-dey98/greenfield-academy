@@ -7,12 +7,14 @@ import {
   scheduleInterview, recordInterviewOutcome, bulkUpdateStatus, listCycles,
 } from "@/lib/api/admissions"
 import { listTeachers } from "@/lib/api/adminPeople"
+import { listClasses } from "@/lib/api/classes"
 import { useAuth } from "@/context/AuthContext"
 import toast from "react-hot-toast"
 import {
   Eye, CheckCircle, AlertCircle, X, FileText, ExternalLink,
 } from "lucide-react"
 import DataTable from "@/components/ui/DataTable"
+import { toLimitOffset } from "@/components/ui/Pagination"
 import SearchBox from "@/components/ui/SearchBox"
 import Select from "@/components/ui/Select"
 import Input from "@/components/ui/Input"
@@ -23,16 +25,6 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog"
 import CheckBox from "@/components/ui/CheckBox"
 
 const PAGE_SIZE = 20
-
-// Same class list used on the public admission form (app/(public)/admission/page.jsx).
-const CLASSES = [
-  "Class 9 - Section A",
-  "Class 9 - Section B",
-  "Class 10 - Section A",
-  "Class 10 - Section B",
-  "Class 11 - Science",
-  "Class 11 - Commerce",
-]
 
 const STATUS_OPTIONS = [
   { label: "All statuses", value: "" },
@@ -130,6 +122,7 @@ export default function AdmissionsManager() {
 
   const [cycles, setCycles] = useState([])
   const [teachers, setTeachers] = useState([])
+  const [classes, setClasses] = useState([])
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
@@ -154,13 +147,14 @@ export default function AdmissionsManager() {
   const [bulkGradingOpen, setBulkGradingOpen] = useState(false)
   const [bulkStatusOpen, setBulkStatusOpen] = useState(null) // status value or null
   const [bulkBusy, setBulkBusy] = useState(false)
-  const [bulkExamForm, setBulkExamForm] = useState({ exam_date: "", exam_time: "", venue: "" })
+  const [bulkExamForm, setBulkExamForm] = useState({ exam_date: "", exam_time: "", venue: "", room: "" })
   const [bulkGradingTeacher, setBulkGradingTeacher] = useState("")
   const [bulkDecisionNotes, setBulkDecisionNotes] = useState("")
 
   useEffect(() => {
     listCycles().then(setCycles).catch(err => console.error("Failed to load cycles:", err))
     listTeachers({ limit: 200 }).then(page => setTeachers(page?.items ?? [])).catch(err => console.error("Failed to load teachers:", err))
+    listClasses().then(setClasses).catch(err => console.error("Failed to load classes:", err))
   }, [])
 
   const [debouncedSearch, setDebouncedSearch] = useState("")
@@ -175,8 +169,7 @@ export default function AdmissionsManager() {
     setLoading(true)
     try {
       const res = await listApplications({
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
+        ...toLimitOffset(page, pageSize),
         q: debouncedSearch || undefined,
         status: statusFilter || undefined,
         applying_class: classFilter || undefined,
@@ -210,7 +203,7 @@ export default function AdmissionsManager() {
   ]
   const classOptions = [
     { label: "All Classes", value: "" },
-    ...CLASSES.map(c => ({ label: c, value: c })),
+    ...classes.map(c => ({ label: c.name, value: c.name })),
   ]
   const teacherOptions = teachers.map(t => ({ label: t.name, value: t.id }))
 
@@ -289,7 +282,7 @@ export default function AdmissionsManager() {
   const openBulkExam = () => {
     if (!attemptWrite("admissions")) return
     if (selectedIds.size === 0) return
-    setBulkExamForm({ exam_date: "", exam_time: "", venue: "" })
+    setBulkExamForm({ exam_date: "", exam_time: "", venue: "", room: "" })
     setBulkExamOpen(true)
   }
   const handleBulkExam = async () => {
@@ -300,6 +293,7 @@ export default function AdmissionsManager() {
         exam_date: toISO(bulkExamForm.exam_date),
         exam_time: bulkExamForm.exam_time,
         venue: bulkExamForm.venue,
+        room: bulkExamForm.room || undefined,
       })
       setBulkExamOpen(false)
       toast.success(`Exam scheduled for ${selectedIds.size} application(s).`)
@@ -400,7 +394,7 @@ export default function AdmissionsManager() {
       render: (row) => <span className="text-sm text-muted">{formatDate(row.created_at)}</span>,
     },
     {
-      key: "actions", label: "", sortable: false, width: 60,
+      key: "actions", label: "Action", sortable: false, width: 60,
       render: (row) => (
         <button
           onClick={(e) => { e.stopPropagation(); openDetail(row) }}
@@ -506,6 +500,7 @@ export default function AdmissionsManager() {
           <DatePicker label="Exam Date" required value={bulkExamForm.exam_date} onChange={v => setBulkExamForm(f => ({ ...f, exam_date: v }))} />
           <Input label="Exam Time" placeholder="HH:MM" value={bulkExamForm.exam_time} onChange={e => setBulkExamForm(f => ({ ...f, exam_time: e.target.value }))} />
           <Input label="Venue" placeholder="e.g. Main Hall" value={bulkExamForm.venue} onChange={e => setBulkExamForm(f => ({ ...f, venue: e.target.value }))} />
+          <Input label="Room" placeholder="e.g. Room 204" value={bulkExamForm.room} onChange={e => setBulkExamForm(f => ({ ...f, room: e.target.value }))} />
           <div className="flex gap-3 pt-3 border-t border-border">
             <button onClick={handleBulkExam} disabled={bulkBusy || !bulkExamForm.exam_date} className="btn btn-primary disabled:opacity-60">
               {bulkBusy ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : "Schedule"}
@@ -561,8 +556,8 @@ function InfoGrid({ items }) {
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
       {items.map((item, i) => (
         <div key={i}>
-          <p className="text-xs text-muted">{item.label}</p>
-          <p className="text-sm font-medium text-text">{item.value ?? "—"}</p>
+          <p className="text-sm text-text font-medium">{item.label}</p>
+          <p className="text-sm text-faint">{item.value ?? "—"}</p>
         </div>
       ))}
     </div>
@@ -571,9 +566,9 @@ function InfoGrid({ items }) {
 
 function ApplicationDetailBody({ detail, teacherOptions, actionBusy, actionError, runAction, attemptWrite, setActionError }) {
   const [decisionNotes, setDecisionNotes] = useState("")
-  const [examForm, setExamForm] = useState({ exam_date: "", exam_time: "", venue: "" })
+  const [examForm, setExamForm] = useState({ exam_date: "", exam_time: "", venue: "", room: "" })
   const [gradingTeacher, setGradingTeacher] = useState("")
-  const [interviewForm, setInterviewForm] = useState({ interview_date: "", interview_time: "", mode: "in_person", interviewer_name: "" })
+  const [interviewForm, setInterviewForm] = useState({ interview_date: "", interview_time: "", mode: "in_person", interviewer_name: "", room: "", meeting_link: "", phone_number: "" })
   const [interviewOutcome, setInterviewOutcome] = useState({ interview_outcome: "", interview_notes: "" })
 
   const status = detail.status
@@ -597,7 +592,7 @@ function ApplicationDetailBody({ detail, teacherOptions, actionBusy, actionError
 
       {/* Personal / guardian info */}
       <div className="flex flex-col gap-3">
-        <h4 className="text-xs font-semibold text-muted uppercase tracking-wide">Student Information</h4>
+        <h4 className="text-lg font-bold text-text uppercase underline underline-offset-2">Student Information</h4>
         <InfoGrid items={[
           { label: "Full Name", value: detail.student_name },
           { label: "Date of Birth", value: formatDate(detail.dob) },
@@ -611,7 +606,7 @@ function ApplicationDetailBody({ detail, teacherOptions, actionBusy, actionError
       </div>
 
       <div className="flex flex-col gap-3">
-        <h4 className="text-xs font-semibold text-muted uppercase tracking-wide">Guardian Information</h4>
+        <h4 className="text-lg font-bold text-text uppercase underline underline-offset-2">Guardian Information</h4>
         <InfoGrid items={[
           { label: "Guardian Name", value: detail.guardian_name },
           { label: "Relationship", value: detail.guardian_relationship },
@@ -624,7 +619,7 @@ function ApplicationDetailBody({ detail, teacherOptions, actionBusy, actionError
 
       {(detail.medical_conditions || detail.extracurricular || detail.notes) && (
         <div className="flex flex-col gap-3">
-          <h4 className="text-xs font-semibold text-muted uppercase tracking-wide">Additional Information</h4>
+          <h4 className="text-lg font-bold text-text uppercase underline underline-offset-2">Additional Information</h4>
           <InfoGrid items={[
             { label: "Medical Conditions", value: detail.medical_conditions },
             { label: "Extracurricular", value: detail.extracurricular },
@@ -635,7 +630,7 @@ function ApplicationDetailBody({ detail, teacherOptions, actionBusy, actionError
 
       {/* Documents */}
       <div className="flex flex-col gap-3">
-        <h4 className="text-xs font-semibold text-muted uppercase tracking-wide">Documents</h4>
+        <h4 className="text-lg font-bold text-text uppercase underline underline-offset-2">Documents</h4>
         {detail.documents?.length ? (
           <div className="flex flex-col gap-2">
             {detail.documents.map(doc => (
@@ -644,7 +639,7 @@ function ApplicationDetailBody({ detail, teacherOptions, actionBusy, actionError
                 href={doc.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-2 text-sm text-text hover:text-primary transition-colors no-underline"
+                className="flex items-center gap-2.5 px-3 py-2 rounded-sm bg-surface-2 text-sm text-text hover:text-primary transition-colors no-underline"
               >
                 <FileText size={14} className="text-faint shrink-0" />
                 <span className="flex-1 truncate">{doc.file_name || doc.doc_type || "Document"}</span>
@@ -658,23 +653,25 @@ function ApplicationDetailBody({ detail, teacherOptions, actionBusy, actionError
       </div>
 
       <div className="border-t border-border pt-5 flex flex-col gap-5">
-        <h4 className="text-xs font-semibold text-muted uppercase tracking-wide">Actions</h4>
+        <h4 className="text-lg font-bold text-text uppercase underline underline-offset-2">Actions</h4>
 
         {/* under_review: screen-reject or schedule exam */}
         {status === "under_review" && (
           <div className="flex flex-col gap-5">
             <div className="card flex flex-col gap-3">
               <p className="text-sm font-medium text-text">Schedule Entrance Exam</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <DatePicker label="Exam Date" required value={examForm.exam_date} onChange={v => setExamForm(f => ({ ...f, exam_date: v }))} />
                 <Input label="Exam Time" placeholder="HH:MM" value={examForm.exam_time} onChange={e => setExamForm(f => ({ ...f, exam_time: e.target.value }))} />
                 <Input label="Venue" placeholder="e.g. Main Hall" value={examForm.venue} onChange={e => setExamForm(f => ({ ...f, venue: e.target.value }))} />
+                <Input label="Room" placeholder="e.g. Room 204" value={examForm.room} onChange={e => setExamForm(f => ({ ...f, room: e.target.value }))} />
               </div>
               <button
                 onClick={() => runAction(() => scheduleExam(detail.id, {
                   exam_date: toISO(examForm.exam_date),
                   exam_time: examForm.exam_time,
                   venue: examForm.venue,
+                  room: examForm.room || undefined,
                 }), "Exam scheduled.")}
                 disabled={actionBusy || !examForm.exam_date}
                 className="btn btn-primary w-fit disabled:opacity-60"
@@ -705,6 +702,7 @@ function ApplicationDetailBody({ detail, teacherOptions, actionBusy, actionError
               { label: "Exam Date", value: formatDate(detail.exam_schedule?.exam_date) },
               { label: "Exam Time", value: detail.exam_schedule?.exam_time },
               { label: "Venue", value: detail.exam_schedule?.venue },
+              { label: "Room", value: detail.exam_schedule?.room },
               { label: "Roll Number", value: detail.exam_schedule?.roll_number },
             ]} />
             <button
@@ -752,6 +750,15 @@ function ApplicationDetailBody({ detail, teacherOptions, actionBusy, actionError
                 <Input label="Interview Time" placeholder="HH:MM" value={interviewForm.interview_time} onChange={e => setInterviewForm(f => ({ ...f, interview_time: e.target.value }))} />
                 <Select label="Mode" options={INTERVIEW_MODES} value={interviewForm.mode} onChange={v => setInterviewForm(f => ({ ...f, mode: v }))} searchable={false} clearable={false} />
                 <Input label="Interviewer Name" value={interviewForm.interviewer_name} onChange={e => setInterviewForm(f => ({ ...f, interviewer_name: e.target.value }))} />
+                {interviewForm.mode === "in_person" && (
+                  <Input label="Room" placeholder="e.g. Room 12, Admin Building" value={interviewForm.room} onChange={e => setInterviewForm(f => ({ ...f, room: e.target.value }))} />
+                )}
+                {interviewForm.mode === "video" && (
+                  <Input label="Meeting Link" placeholder="https://meet.google.com/..." value={interviewForm.meeting_link} onChange={e => setInterviewForm(f => ({ ...f, meeting_link: e.target.value }))} />
+                )}
+                {interviewForm.mode === "phone" && (
+                  <Input label="Phone Number" placeholder="+880-2-9876543" value={interviewForm.phone_number} onChange={e => setInterviewForm(f => ({ ...f, phone_number: e.target.value }))} />
+                )}
               </div>
               <button
                 onClick={() => runAction(() => scheduleInterview(detail.id, {
@@ -759,6 +766,9 @@ function ApplicationDetailBody({ detail, teacherOptions, actionBusy, actionError
                   interview_time: interviewForm.interview_time,
                   mode: interviewForm.mode,
                   interviewer_name: interviewForm.interviewer_name || undefined,
+                  room: interviewForm.mode === "in_person" ? (interviewForm.room || undefined) : undefined,
+                  meeting_link: interviewForm.mode === "video" ? (interviewForm.meeting_link || undefined) : undefined,
+                  phone_number: interviewForm.mode === "phone" ? (interviewForm.phone_number || undefined) : undefined,
                 }), "Interview scheduled.")}
                 disabled={actionBusy || !interviewForm.interview_date}
                 className="btn btn-primary w-fit disabled:opacity-60"
@@ -800,6 +810,9 @@ function ApplicationDetailBody({ detail, teacherOptions, actionBusy, actionError
                 { label: "Interview Time", value: detail.interview?.interview_time },
                 { label: "Mode", value: detail.interview?.mode },
                 { label: "Interviewer", value: detail.interview?.interviewer_name },
+                ...(detail.interview?.mode === "in_person" ? [{ label: "Room", value: detail.interview?.room }] : []),
+                ...(detail.interview?.mode === "video" ? [{ label: "Meeting Link", value: detail.interview?.meeting_link }] : []),
+                ...(detail.interview?.mode === "phone" ? [{ label: "Phone Number", value: detail.interview?.phone_number }] : []),
               ]} />
             </div>
             <div className="flex flex-col gap-3 border-t border-border pt-4">

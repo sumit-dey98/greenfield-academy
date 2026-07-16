@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { getNotices } from "@/lib/api/public"
-import { Bell, Calendar, ChevronDown, Search, X } from "lucide-react"
+import { Bell, Calendar, ChevronDown, LayoutGrid, List, Search, X } from "lucide-react"
+import Pagination, { toLimitOffset } from "@/components/ui/Pagination"
+
+const DEFAULT_PAGE_SIZE = 10
+const INITIAL_PREVIEW_SIZE = 6
 
 const categoryMeta = {
   Event: { badge: "badge-info", bg: "#dbeafe", color: "#1e40af" },
@@ -102,43 +106,123 @@ function NoticeCard({ notice }) {
   )
 }
 
+function NoticeGridCard({ notice }) {
+  const cat = categoryMeta[notice.category] ?? categoryMeta.General
+  const isExpired = notice.expires && new Date(notice.expires) < new Date()
+
+  return (
+    <div className={`card flex flex-col gap-3 h-full ${isExpired ? "opacity-60" : ""}`}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span
+          className="text-[12px] font-semibold px-2.5 py-1 rounded-full border"
+          style={{ background: cat.bg, color: cat.color, borderColor: cat.color }}
+        >
+          {notice.category}
+        </span>
+        {notice.priority === "high" && (
+          <span className="badge badge-danger">Urgent</span>
+        )}
+        {isExpired && (
+          <span className="badge badge-warning">Expired</span>
+        )}
+      </div>
+
+      <h3 className="font-semibold text-text text-base leading-snug">
+        {notice.title}
+      </h3>
+
+      <p
+        className="text-sm text-muted leading-relaxed overflow-hidden"
+        style={{ display: "-webkit-box", WebkitLineClamp: 8, WebkitBoxOrient: "vertical" }}
+      >
+        {notice.content}
+      </p>
+
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-faint mt-auto pt-1">
+        <div className="flex items-center gap-1">
+          <Calendar size={14} className="shrink-0 mb-0.5" />
+          <span>
+            {new Date(notice.date).toLocaleDateString("en-GB", {
+              day: "numeric", month: "long", year: "numeric",
+            })}
+          </span>
+        </div>
+
+        {notice.expires && (
+          <span className="flex items-center gap-1">
+            <span className="text-faint/50">·</span>
+            Expires {new Date(notice.expires).toLocaleDateString("en-GB", {
+              day: "numeric", month: "short", year: "numeric",
+            })}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function NoticesPage() {
   const [notices, setNotices] = useState([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [activeCategory, setActiveCategory] = useState("All")
-  const [visible, setVisible] = useState(6)
+  const [view, setView] = useState("list")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  // Before "Load more" is clicked, show a flat preview of the latest notices with
+  // no pagination controls. Clicking it reveals full page navigation.
+  const [paginationActive, setPaginationActive] = useState(false)
+
+  // Debounce search input before it drives a server request.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(id)
+  }, [search])
+
+  // Category/search change: reset back to the collapsed preview.
+  useEffect(() => {
+    setPage(1)
+    setPaginationActive(false)
+  }, [activeCategory, debouncedSearch])
 
   useEffect(() => {
+    let cancelled = false
     const load = async () => {
+      setLoading(true)
       try {
-        const page = await getNotices({ limit: 200 })
-        setNotices(page?.items ?? [])
+        const result = await getNotices({
+          ...(paginationActive ? toLimitOffset(page, pageSize) : { limit: INITIAL_PREVIEW_SIZE, offset: 0 }),
+          category: activeCategory === "All" ? undefined : activeCategory,
+          title: debouncedSearch || undefined,
+        })
+        if (cancelled) return
+        setNotices(result?.items ?? [])
+        setTotal(result?.total ?? 0)
       } catch (err) {
         console.error("Failed to load notices:", err)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     load()
-  }, [])
+    return () => { cancelled = true }
+  }, [activeCategory, debouncedSearch, page, pageSize, paginationActive])
 
-  useEffect(() => {
-    setVisible(6)
-  }, [search, activeCategory])
+  const handlePageSizeChange = (size) => {
+    setPageSize(size)
+    setPage(1)
+  }
 
-  const filtered = notices.filter(n => {
-    const matchesCategory = activeCategory === "All" || n.category === activeCategory
-    const matchesSearch = search === "" ||
-      n.title.toLowerCase().includes(search.toLowerCase()) ||
-      n.content.toLowerCase().includes(search.toLowerCase())
-    return matchesCategory && matchesSearch
-  })
-  const visibleNotices = filtered.slice(0, visible)
+  const handleLoadMore = () => {
+    setPage(1)
+    setPaginationActive(true)
+  }
 
   return (
     <div className="flex-1 py-10 md:py-14 px-4 md:px-6">
-      <div className="max-w-3xl mx-auto flex flex-col gap-8">
+      <div className={`mx-auto flex flex-col gap-8 ${view === "grid" ? "max-w-6xl" : "max-w-6xl"}`}>
 
         {/* Header */}
           <div>
@@ -175,41 +259,60 @@ export default function NoticesPage() {
             )}
           </div>
 
-          {/* Category filters */}
-          <div className="flex gap-2 flex-wrap -mt-4">
-            {CATEGORIES.map(cat => (
+          {/* Category filters + view toggle */}
+          <div className="flex items-center justify-between gap-2 flex-wrap -mt-4">
+            <div className="flex gap-2 flex-wrap">
+              {CATEGORIES.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors duration-150 cursor-pointer
+                    ${activeCategory === cat
+                      ? "bg-primary text-white border-primary"
+                      : "bg-surface text-muted border-border hover:text-text"
+                    }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-1 border border-border rounded-sm p-1 bg-surface">
               <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors duration-150 cursor-pointer
-                  ${activeCategory === cat
-                    ? "bg-primary text-white border-primary"
-                    : "bg-surface text-muted border-border hover:text-text"
-                  }`}
+                onClick={() => setView("list")}
+                aria-label="List view"
+                className={`p-1.5 rounded-sm transition-colors cursor-pointer ${view === "list" ? "bg-primary text-white" : "text-faint hover:text-muted"}`}
               >
-                {cat}
+                <List size={14} />
               </button>
-            ))}
+              <button
+                onClick={() => setView("grid")}
+                aria-label="Grid view"
+                className={`p-1.5 rounded-sm transition-colors cursor-pointer ${view === "grid" ? "bg-primary text-white" : "text-faint hover:text-muted"}`}
+              >
+                <LayoutGrid size={14} />
+              </button>
+            </div>
           </div>
 
           {/* Count */}
           {!loading && (
             <p className="text-xs text-muted -mt-4">
-              {filtered.length === 0
+              {total === 0
                 ? "No notices found."
-                : `${filtered.length} notice${filtered.length !== 1 ? "s" : ""}${activeCategory !== "All" ? ` in ${activeCategory}` : ""}${search ? ` matching "${search}"` : ""}`
+                : `${total} notice${total !== 1 ? "s" : ""}${activeCategory !== "All" ? ` in ${activeCategory}` : ""}${debouncedSearch ? ` matching "${debouncedSearch}"` : ""}`
               }
             </p>
           )}
 
-          {/* List */}
+          {/* List / Grid */}
           {loading ? (
-            <div className="flex flex-col gap-4">
+            <div className={view === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col gap-4"}>
               {[1, 2, 3, 4].map(i => (
                 <div key={i} className="card h-28 bg-surface-2 animate-pulse" />
               ))}
             </div>
-          ) : filtered.length === 0 ? (
+          ) : notices.length === 0 ? (
               <div className="card flex flex-col items-center justify-center py-10 md:py-20 gap-3 text-center">
               <Bell size={36} className="text-faint" />
               <p className="text-muted text-sm">No notices found.</p>
@@ -224,21 +327,40 @@ export default function NoticesPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {visibleNotices.map(notice => (
-                <NoticeCard key={notice.id} notice={notice} />
-              ))}
+              {view === "grid" ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {notices.map(notice => (
+                    <NoticeGridCard key={notice.id} notice={notice} />
+                  ))}
+                </div>
+              ) : (
+                notices.map(notice => (
+                  <NoticeCard key={notice.id} notice={notice} />
+                ))
+              )}
 
-              {/* Load more */}
-              {visible < filtered.length && (
+              {!paginationActive && notices.length < total && (
                 <button
-                  onClick={() => setVisible(v => v + 6)}
-                  className="btn btn-outline w-full justify-center"
+                  onClick={handleLoadMore}
+                  className="btn btn-outline w-fit mx-auto justify-center mt-2"
                 >
                   Load more
-                  <span className="text-xs text-faint ml-1">
-                    ({filtered.length - visible} remaining)
-                  </span>
+                  {/* <span className="text-xs">
+                    ({total - notices.length} remaining)
+                  </span> */}
                 </button>
+              )}
+
+              {paginationActive && total > 0 && (
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  total={total}
+                  onPageChange={setPage}
+                  onPageSizeChange={handlePageSizeChange}
+                  itemLabel="notices"
+                  className="border border-border rounded-md bg-text"
+                />
               )}
             </div>
 

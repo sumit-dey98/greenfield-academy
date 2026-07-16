@@ -5,6 +5,7 @@ import { listMyGradingAssignments, submitGradingResult } from "@/lib/api/teacher
 import { ClipboardList, CheckCircle2, Hourglass, Save, AlertCircle } from "lucide-react"
 import toast from "react-hot-toast"
 import DataTable from "@/components/ui/DataTable"
+import { toLimitOffset } from "@/components/ui/Pagination"
 import Input from "@/components/ui/Input"
 import Textarea from "@/components/ui/Textarea"
 
@@ -83,7 +84,7 @@ export default function AdmissionGradingList() {
   const fetchAssignments = async () => {
     setLoading(true)
     try {
-      const res = await listMyGradingAssignments({ limit: pageSize, offset: (page - 1) * pageSize })
+      const res = await listMyGradingAssignments(toLimitOffset(page, pageSize))
       setAssignments(res?.items ?? [])
       setTotal(res?.total ?? 0)
     } catch (err) {
@@ -98,7 +99,6 @@ export default function AdmissionGradingList() {
 
   useEffect(() => {
     fetchAssignments()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize])
 
   const handleSubmitted = (updated) => {

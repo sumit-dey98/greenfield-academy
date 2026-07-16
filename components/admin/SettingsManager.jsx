@@ -86,7 +86,7 @@ export default function SettingsManager() {
                 </div>
               </div>
 
-              <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border shadow-card ${admissionOpen ? "bg-primary-light border-success" : "bg-surface-2 border-border"}`}>
+              <div className={`flex items-start gap-3 px-4 py-3 rounded-md border shadow-card ${admissionOpen ? "bg-primary-light border-success" : "bg-surface-2 border-border"}`}>
                 {admissionOpen
                   ? <CheckCircle size={16} className="text-success shrink-0 mt-0.5" />
                   : <Lock size={16} className="text-faint shrink-0 mt-0.5" />
@@ -127,7 +127,7 @@ export default function SettingsManager() {
               { label: "Email", value: "info@greenfieldacademy.edu.bd" },
               { label: "Website", value: "www.greenfieldacademy.edu.bd" },
             ].map((item, i) => (
-              <div key={i} className="flex flex-col gap-1 px-3 py-2.5 bg-surface-2 rounded-lg shadow-card">
+              <div key={i} className="flex flex-col gap-1 px-3 py-2.5 bg-surface-2 rounded-md shadow-card">
                 <span className="text-xs text-muted">{item.label}</span>
                 <span className="text-sm font-medium text-text">{item.value}</span>
               </div>
