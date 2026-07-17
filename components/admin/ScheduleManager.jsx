@@ -143,7 +143,9 @@ export default function ScheduleManager() {
       s.day === day
     )
 
-  // Only this class's schedule is loaded, so we can't pre-detect cross-class teacher clashes here
+  // Only this class's schedule is loaded, so we can't pre-detect cross-class teacher
+  // clashes here — the backend enforces that on save (TEACHER_SCHEDULE_CONFLICT) and
+  // its message is surfaced in the popover. Nothing to warn about client-side.
   const checkConflict = () => null
 
   const openCell = (periodId, day, anchorEl) => {
@@ -311,6 +313,7 @@ export default function ScheduleManager() {
   }
 
   // Sends the whole period list 
+  const handleSaveAllPeriods = async () => {
     if (!attemptWrite("academic")) return
     setSavingAllPeriods(true)
 
