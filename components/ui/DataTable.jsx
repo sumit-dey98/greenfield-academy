@@ -120,7 +120,7 @@ export default function DataTable({
                   style={{ width: colWidths[col.key] ?? 150 }}
                 >
                   <div
-                    className={`flex items-center gap-1.5 ${col.sortable && !serverMode ? "cursor-pointer hover:text-text" : ""}`}
+                    className={`flex items-center gap-1.5 ${col.sortable && !serverMode ? "cursor-pointer hover:text-surface-2" : ""}`}
                     onClick={() => col.sortable && handleSort(col.key)}
                   >
                     <span className="truncate">{col.label}</span>
@@ -177,7 +177,7 @@ export default function DataTable({
           total={rowCount}
           onPageChange={setPage}
           onPageSizeChange={handlePageSizeChange}
-          className="border-t border-border shrink-0 bg-text rounded-b-sm"
+          className="border-t border-border shrink-0 bg-text rounded-b-md"
         />
       )}
     </div>

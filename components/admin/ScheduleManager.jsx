@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import {
   listSchedule, createSchedule, updateSchedule, deleteSchedule,
-  listPeriods, createPeriod, updatePeriod, deletePeriod,
+  listPeriods, deletePeriod, replacePeriods,
 } from "@/lib/api/schedule"
 import { listClasses } from "@/lib/api/classes"
 import { listSubjects } from "@/lib/api/subjects"
@@ -13,10 +13,15 @@ import {
   Clock, Plus, Trash2, Save,
   AlertTriangle, ChevronDown, Pencil, Check, X,
 } from "lucide-react"
+import toast from "react-hot-toast"
 import Select from "@/components/ui/Select"
 import Input from "@/components/ui/Input"
 import CheckBox from "@/components/ui/CheckBox"
 import TimePicker from "@/components/ui/TimePicker"
+
+function errMsg(err, fallback) {
+  return err?.errors?.[0]?.message || err?.message || fallback
+}
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"]
 
@@ -45,12 +50,19 @@ export default function ScheduleManager() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(null)
 
-  // Period editing
+  // Periods
   const [editingPeriod, setEditingPeriod] = useState(null)
   const [periodForm, setPeriodForm] = useState({})
-  const [savingPeriod, setSavingPeriod] = useState(false)
+  const [pendingEdits, setPendingEdits] = useState({})   // periodId -> { start_time, end_time, label, is_break }
+  const [pendingNewPeriods, setPendingNewPeriods] = useState([])   // [{ tempId, start_time, end_time, label, is_break }]
+  const [savingAllPeriods, setSavingAllPeriods] = useState(false)
   const [showAddPeriod, setShowAddPeriod] = useState(false)
   const [newPeriod, setNewPeriod] = useState({ start_time: "", end_time: "", is_break: false, label: "" })
+
+  const hasPendingPeriodChanges = Object.keys(pendingEdits).length > 0 || pendingNewPeriods.length > 0
+
+  // Merge fetched periods with any pending local edits, for display.
+  const displayPeriods = periods.map(p => pendingEdits[p.id] ? { ...p, ...pendingEdits[p.id] } : p)
 
   const popoverRef = useRef(null)
 
@@ -131,9 +143,7 @@ export default function ScheduleManager() {
       s.day === day
     )
 
-  // Only this class's schedule is loaded, so we can't pre-detect cross-class teacher
-  // clashes here — the backend enforces that on save (TEACHER_SCHEDULE_CONFLICT) and
-  // its message is surfaced in the popover. Nothing to warn about client-side.
+  // Only this class's schedule is loaded, so we can't pre-detect cross-class teacher clashes here
   const checkConflict = () => null
 
   const openCell = (periodId, day, anchorEl) => {
@@ -195,11 +205,13 @@ export default function ScheduleManager() {
       }
       setActiveCell(null)
       setConflict(null)
+      toast.success(existing ? "Slot updated." : "Slot created.")
       fetchSchedule(selectedClass)
     } catch (err) {
-      // Surface backend schedule-conflict messages (teacher/class/room) in the popover.
       console.error("Failed to save slot:", err)
-      setConflict(err?.message || "Could not save this slot.")
+      const msg = errMsg(err, "Could not save this slot.")
+      setConflict(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -212,8 +224,10 @@ export default function ScheduleManager() {
     setDeleting(`${periodId}-${day}`)
     try {
       await deleteSchedule(existing.id)
+      toast.success("Slot removed.")
     } catch (err) {
       console.error("Failed to delete slot:", err)
+      toast.error(errMsg(err, "Could not remove this slot."))
     } finally {
       setDeleting(null)
       setActiveCell(null)
@@ -232,63 +246,104 @@ export default function ScheduleManager() {
     })
   }
 
-  const handleSavePeriod = async (periodId) => {
-    setSavingPeriod(true)
-    try {
-      await updatePeriod(periodId, {
+  // Stages the edit locally instead of saving immediately 
+  const handleSavePeriod = (periodId) => {
+    setPendingEdits(prev => ({
+      ...prev,
+      [periodId]: {
         start_time: periodForm.start_time,
         end_time: periodForm.end_time,
         label: periodForm.label || null,
         is_break: periodForm.is_break,
-      })
-      setEditingPeriod(null)
-      fetchMeta()
-    } catch (err) {
-      console.error("Failed to save period:", err)
-    } finally {
-      setSavingPeriod(false)
-    }
+      },
+    }))
+    setEditingPeriod(null)
   }
 
   const handleDeletePeriod = async (periodId) => {
     if (!attemptWrite("academic")) return
     try {
-      // Deleting a period is blocked while schedule entries reference it. We only have the
-      // selected class's entries loaded; fetch every class's entries for this period so we
-      // can clear them all before deleting the period.
       const refPage = await listSchedule({ /* all classes */ limit: 200 })
       const referencing = (refPage?.items ?? []).filter(s => s.period_id === periodId)
       for (const slot of referencing) {
         await deleteSchedule(slot.id)
       }
       await deletePeriod(periodId)
+      setPendingEdits(prev => {
+        const next = { ...prev }
+        delete next[periodId]
+        return next
+      })
+      toast.success("Period removed.")
       fetchMeta()
       fetchSchedule(selectedClass)
     } catch (err) {
       console.error("Failed to delete period:", err)
+      toast.error(errMsg(err, "Could not remove this period."))
     }
   }
 
-  const handleAddPeriod = async () => {
+  // Stages a new period locally instead of creating it immediately — sent on "Save Periods".
+  const handleAddPeriod = () => {
     if (!attemptWrite("academic")) return
     if (!newPeriod.start_time || !newPeriod.end_time) return
-    setSavingPeriod(true)
-    const maxOrder = Math.max(...periods.map(p => p.sort_order), 0)
+    setPendingNewPeriods(prev => [...prev, {
+      tempId: `new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      start_time: newPeriod.start_time,
+      end_time: newPeriod.end_time,
+      is_break: newPeriod.is_break,
+      label: newPeriod.label || null,
+    }])
+    setShowAddPeriod(false)
+    setNewPeriod({ start_time: "", end_time: "", is_break: false, label: "" })
+  }
+
+  const handleRemovePendingNewPeriod = (tempId) => {
+    setPendingNewPeriods(prev => prev.filter(p => p.tempId !== tempId))
+  }
+
+  const handleDiscardPendingEdit = (periodId) => {
+    setPendingEdits(prev => {
+      const next = { ...prev }
+      delete next[periodId]
+      return next
+    })
+  }
+
+  // Sends the whole period list 
+    if (!attemptWrite("academic")) return
+    setSavingAllPeriods(true)
+
+    const fullList = [
+      ...displayPeriods.map(p => ({
+        id: p.id,
+        sort_order: p.sort_order,
+        start_time: p.start_time,
+        end_time: p.end_time,
+        is_break: p.is_break,
+        label: p.label,
+      })),
+      ...pendingNewPeriods.map((p, i) => ({
+        sort_order: Math.max(...periods.map(x => x.sort_order), 0) + 1 + i,
+        start_time: p.start_time,
+        end_time: p.end_time,
+        is_break: p.is_break,
+        label: p.label,
+      })),
+    ]
+
     try {
-      await createPeriod({
-        sort_order: maxOrder + 1,
-        start_time: newPeriod.start_time,
-        end_time: newPeriod.end_time,
-        is_break: newPeriod.is_break,
-        label: newPeriod.label || null,
-      })
-      setShowAddPeriod(false)
-      setNewPeriod({ start_time: "", end_time: "", is_break: false, label: "" })
-      fetchMeta()
+      await replacePeriods(fullList)
+      setPendingEdits({})
+      setPendingNewPeriods([])
+      toast.success("Periods saved.")
     } catch (err) {
-      console.error("Failed to add period:", err)
+      console.error("Failed to save periods:", err)
+      toast.error(errMsg(err, "Could not save period changes."))
     } finally {
-      setSavingPeriod(false)
+      setSavingAllPeriods(false)
+      fetchMeta()
+      fetchSchedule(selectedClass)
     }
   }
 
@@ -312,17 +367,32 @@ export default function ScheduleManager() {
 
       {/* Period editor */}
       <div className="card flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <h2 className="font-semibold text-text flex items-center gap-2 text-base">
             <Clock size={16} className="text-primary" />
             Periods
           </h2>
-          <button
-            onClick={() => setShowAddPeriod(o => !o)}
-            className="btn btn-primary text-sm w-fit"
-          >
-            <Plus size={14} /> Add Period
-          </button>
+          <div className="flex items-center gap-2">
+            {hasPendingPeriodChanges && (
+              <span className="text-xs text-warning font-medium">Unsaved changes</span>
+            )}
+            <button
+              onClick={handleSaveAllPeriods}
+              disabled={!hasPendingPeriodChanges || savingAllPeriods}
+              className="btn btn-primary text-sm w-fit disabled:opacity-60"
+            >
+              {savingAllPeriods
+                ? <span className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                : <><Save size={14} /> Save Periods</>
+              }
+            </button>
+            <button
+              onClick={() => setShowAddPeriod(o => !o)}
+              className="btn btn-outline text-sm w-fit"
+            >
+              <Plus size={14} /> Add Period
+            </button>
+          </div>
         </div>
 
         {showAddPeriod && (
@@ -351,8 +421,8 @@ export default function ScheduleManager() {
 
             {/* Actions */}
             <div className="flex gap-2 h-10 xl:self-center">
-              <button onClick={handleAddPeriod} disabled={savingPeriod} className="btn btn-primary text-xs disabled:opacity-60">
-                {savingPeriod ? <span className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <><Plus size={13} /> Add</>}
+              <button onClick={handleAddPeriod} className="btn btn-primary text-xs">
+                <Plus size={13} /> Add
               </button>
               <button onClick={() => setShowAddPeriod(false)} className="btn btn-outline text-xs">Cancel</button>
             </div>
@@ -360,10 +430,10 @@ export default function ScheduleManager() {
         )}
 
         <div className="flex flex-col gap-2">
-          {periods.map(period => (
+          {displayPeriods.map(period => (
             <div
               key={period.id}
-              className={`flex items-start gap-3 px-4 py-2.5 rounded-sm border transition-colors ${period.is_break ? "bg-border border-border" : "bg-bg border-border"}`}
+              className={`flex items-start gap-3 px-4 py-2.5 rounded-sm border transition-colors ${period.is_break ? "bg-border border-border" : "bg-bg border-border"} ${pendingEdits[period.id] ? "!border-warning" : ""}`}
             >
               {editingPeriod === period.id ? (
                 <div className="flex flex-col xl:flex-row xl:justify-between gap-3 flex-1 min-w-0 ">
@@ -392,8 +462,8 @@ export default function ScheduleManager() {
 
                   {/* Actions */}
                   <div className="flex gap-2 h-10 xl:self-center ">
-                    <button onClick={() => handleSavePeriod(period.id)} disabled={savingPeriod} className="btn btn-primary text-xs disabled:opacity-60">
-                      {savingPeriod ? <span className="w-3 h-3 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <><Save size={14} /> Save</>}
+                    <button onClick={() => handleSavePeriod(period.id)} className="btn btn-primary text-xs">
+                      <Check size={14} /> Apply
                     </button>
                     <button onClick={() => setEditingPeriod(null)} className="btn btn-outline text-xs">Cancel</button>
                   </div>
@@ -406,8 +476,16 @@ export default function ScheduleManager() {
                     </span>
                     {period.is_break && <span className="badge badge-warning text-xs">{period.label ?? "Break"}</span>}
                     {period.label && !period.is_break && <span className="text-xs text-muted truncate">{period.label}</span>}
+                    {pendingEdits[period.id] && (
+                      <span className="badge badge-warning text-xs">Unsaved</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    {pendingEdits[period.id] && (
+                      <button onClick={() => handleDiscardPendingEdit(period.id)} className="p-1.5 rounded-sm hover:bg-surface-2 text-text hover:text-danger transition-colors" title="Discard unsaved change">
+                        <X size={13} />
+                      </button>
+                    )}
                     <button onClick={() => openEditPeriod(period)} className="p-1.5 rounded-sm hover:bg-surface-2 text-text hover:text-amber-800 transition-colors">
                       <Pencil size={13} />
                     </button>
@@ -417,6 +495,27 @@ export default function ScheduleManager() {
                   </div>
                 </>
               )}
+            </div>
+          ))}
+
+          {pendingNewPeriods.map(period => (
+            <div
+              key={period.tempId}
+              className={`flex items-start gap-3 px-4 py-2.5 rounded-sm border !border-warning transition-colors ${period.is_break ? "bg-border" : "bg-bg"}`}
+            >
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-sm font-semibold text-text shrink-0 whitespace-nowrap">
+                  {period.start_time} – {period.end_time}
+                </span>
+                {period.is_break && <span className="badge badge-warning text-xs">{period.label ?? "Break"}</span>}
+                {period.label && !period.is_break && <span className="text-xs text-muted truncate">{period.label}</span>}
+                <span className="badge badge-warning text-xs">New · Unsaved</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => handleRemovePendingNewPeriod(period.tempId)} className="p-1.5 rounded-sm hover:bg-surface-2 text-text hover:text-danger transition-colors" title="Discard">
+                  <Trash2 size={13} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -453,7 +552,7 @@ export default function ScheduleManager() {
               </tr>
             </thead>
             <tbody>
-              {periods.map(period => (
+              {displayPeriods.map(period => (
                 <tr key={period.id} className={`border-b border-border last:border-0 ${period.is_break ? "bg-surface-2 opacity-70" : ""}`}>
                   <td className="px-4 py-3 shrink-0 w-32">
                     {period.is_break ? (

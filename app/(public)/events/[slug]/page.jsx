@@ -161,7 +161,7 @@ export default function EventPostPage() {
         )}
 
         {/* Body — three column layout */}
-        <div className="max-w-screen-2xl mx-auto px-6 py-10">
+        <div className="max-w-screen-xl mx-auto px-6 py-10">
           {loading ? (
             // body skeleton
             <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_220px] gap-8">
