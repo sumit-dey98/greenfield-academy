@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { getMySchedule } from "@/lib/api/teachers"
+import LoadingState from "../ui/LoadingState"
 import { useAuth } from "@/context/AuthContext"
 import { CalendarDays, Clock } from "lucide-react"
 
@@ -49,11 +50,7 @@ export default function TeacherSchedule() {
     { label: "Daily Avg.", value: Math.round(totalClasses / DAYS.length) || 0, text: "text-warning", bg: "bg-amber-100 dark:bg-amber-950/30", border: "ring-amber-600" },
   ]
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">

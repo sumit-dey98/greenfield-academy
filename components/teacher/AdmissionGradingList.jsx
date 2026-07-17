@@ -8,6 +8,7 @@ import DataTable from "@/components/ui/DataTable"
 import { toLimitOffset } from "@/components/ui/Pagination"
 import Input from "@/components/ui/Input"
 import Textarea from "@/components/ui/Textarea"
+import LoadingState from "../ui/LoadingState"
 
 const PAGE_SIZE = 20
 
@@ -148,11 +149,7 @@ export default function AdmissionGradingList() {
     },
   ]
 
-  if (loading && assignments.length === 0) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">

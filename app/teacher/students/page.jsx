@@ -5,6 +5,7 @@ import { getMyClass, getMyResults } from "@/lib/api/teachers"
 import { useAuth } from "@/context/AuthContext"
 import { Users, ChevronDown, Phone, MapPin, User, TrendingUp, Eye } from "lucide-react"
 import DataTable from "@/components/ui/DataTable"
+import LoadingState from "../ui/LoadingState"
 import SearchBox from "@/components/ui/SearchBox"
 import Modal from "@/components/ui/Modal"
 
@@ -165,11 +166,7 @@ export default function TeacherStudents() {
     },
   ]
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">

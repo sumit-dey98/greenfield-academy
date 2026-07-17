@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { getMyClass, getMyAttendance, markAttendance } from "@/lib/api/teachers"
 import { useAuth } from "@/context/AuthContext"
 import { CalendarCheck, CheckCircle, Save, Users } from "lucide-react"
+import LoadingState from "../ui/LoadingState"
 import DatePicker from "@/components/ui/DatePicker"
 
 const STATUS_OPTIONS = ["present", "absent", "late"]
@@ -116,11 +117,7 @@ export default function TeacherAttendance() {
   const initials = (name) => name
     ?.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">

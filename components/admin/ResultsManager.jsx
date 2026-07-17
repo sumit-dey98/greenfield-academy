@@ -16,6 +16,7 @@ import SearchBox from "@/components/ui/SearchBox"
 import Select from "@/components/ui/Select"
 import Input from "@/components/ui/Input"
 import Modal from "@/components/ui/Modal"
+import LoadingState from "../ui/LoadingState"
 import ConfirmDialog from "@/components/ui/ConfirmDialog"
 import { calcGrade, calcRemarks, gradeColor } from "@/lib/services/grading"
 
@@ -337,11 +338,7 @@ export default function ResultsManager() {
     ? classes.filter(c => c.id === classFilter)
     : classes
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">

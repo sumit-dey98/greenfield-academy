@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext"
 import { BookOpen, Users, Save, CheckCircle, Plus, Trash2, AlertCircle, Pencil } from "lucide-react"
 import Input from "@/components/ui/Input"
 import Select from "@/components/ui/Select"
+import LoadingState from "../ui/LoadingState"
 import Modal from "@/components/ui/Modal"
 import ConfirmDialog from "@/components/ui/ConfirmDialog"
 
@@ -154,11 +155,7 @@ export default function ClassesManager() {
 
   const gradeColors = { 9: "#059669", 10: "#0891b2", 11: "#9333ea", 12: "#f59e0b" }
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">

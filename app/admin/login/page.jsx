@@ -82,7 +82,7 @@ export default function AdminLoginPage() {
             disabled={loading}
           />
           {error && (
-            <div className="flex items-center gap-2 px-3 py-2.5 bg-surface border border-danger rounded-lg">
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-surface border border-danger rounded-sm">
               <p className="text-xs text-danger">{error}</p>
             </div>
           )}

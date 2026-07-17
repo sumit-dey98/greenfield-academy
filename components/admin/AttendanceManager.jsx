@@ -10,6 +10,7 @@ import {
   ChevronDown, Save,
   CheckCircle, CalendarCheck, Users,
 } from "lucide-react"
+import LoadingState from "../ui/LoadingState"
 import Select from "@/components/ui/Select"
 import DatePicker from "@/components/ui/DatePicker"
 
@@ -269,11 +270,7 @@ export default function AttendanceManager() {
     }
   }
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">

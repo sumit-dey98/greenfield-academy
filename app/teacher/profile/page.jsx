@@ -7,6 +7,7 @@ import {
   User, Mail, Phone, BookOpen, Calendar,
   GraduationCap, Save, Pencil, CheckCircle, Users,
 } from "lucide-react"
+import LoadingState from "../ui/LoadingState"
 import Input from "@/components/ui/Input"
 
 function InfoRow({ icon, label, value }) {
@@ -72,11 +73,7 @@ export default function TeacherProfile() {
   const initials = user?.name
     ?.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">

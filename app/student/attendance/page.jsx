@@ -10,6 +10,7 @@ import {
   CartesianGrid, ResponsiveContainer,
 } from "recharts"
 import DataTable from "@/components/ui/DataTable"
+import LoadingState from "../ui/LoadingState"
 import Select from "@/components/ui/Select"
 import { useAuth } from "@/context/AuthContext"
 
@@ -223,11 +224,7 @@ export default function StudentAttendance() {
     },
   ]
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">

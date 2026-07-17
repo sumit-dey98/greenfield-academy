@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { listStudents, listTeachers } from "@/lib/api/adminPeople"
+import LoadingState from "../ui/LoadingState"
 import { listClasses } from "@/lib/api/classes"
 import { listEvents } from "@/lib/api/events"
 import { listExams } from "@/lib/api/exams"
@@ -156,11 +157,7 @@ export default function DashboardScreen({ basePath = "/admin" }) {
     },
   ]
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">

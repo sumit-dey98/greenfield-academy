@@ -18,6 +18,7 @@ import Select from "@/components/ui/Select"
 import Input from "@/components/ui/Input"
 import CheckBox from "@/components/ui/CheckBox"
 import TimePicker from "@/components/ui/TimePicker"
+import LoadingState from "@/components/ui/LoadingState"
 
 function errMsg(err, fallback) {
   return err?.errors?.[0]?.message || err?.message || fallback
@@ -72,7 +73,7 @@ export default function ScheduleManager() {
       const [classesData, subjectsData, teachersPage, periodsData] = await Promise.all([
         listClasses(),
         listSubjects(),
-        listTeachers({ limit: 200 }),
+        listTeachers({ limit: 50 }),
         listPeriods(),
       ])
       const cls = classesData ?? []
@@ -93,7 +94,7 @@ export default function ScheduleManager() {
   const fetchSchedule = async (classId) => {
     if (!classId) { setSchedule([]); return }
     try {
-      const schedulePage = await listSchedule({ class_id: classId, limit: 200 })
+      const schedulePage = await listSchedule({ class_id: classId, limit: 30 })
       setSchedule(schedulePage?.items ?? [])
     } catch (err) {
       console.error("Failed to load schedule:", err)
@@ -354,11 +355,7 @@ export default function ScheduleManager() {
   const subjectOptions = subjects.map(s => ({ label: s.name, value: s.id }))
   const teacherOptions = teachers.map(t => ({ label: `${t.name} (${t.subject_name ?? "—"})`, value: t.id }))
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">
@@ -564,9 +561,10 @@ export default function ScheduleManager() {
                         <span className="text-xs text-faint">{period.start_time} – {period.end_time}</span>
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-semibold text-text">{period.start_time}</span>
-                        <span className="text-xs text-faint">{period.end_time}</span>
+                      <div className="flex flex-col w-fit">
+                        <span className="text-sm font-semibold text-text">{period.start_time}</span>
+                          <span className="text-xs font-semibold text-text text-center">to</span>
+                          <span className="text-sm font-semibold text-text">{period.end_time}</span>
                       </div>
                     )}
                   </td>

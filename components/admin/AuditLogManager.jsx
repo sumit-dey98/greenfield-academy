@@ -350,7 +350,7 @@ export default function AuditLogManager() {
 
       {/* Bulk action bar — appears once rows are selected. */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-primary-light border border-primary/30 rounded-lg">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-primary-light border border-primary/30 rounded-md">
           <span className="text-sm font-medium text-text">
             {selectedIds.size} selected
           </span>

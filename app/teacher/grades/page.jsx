@@ -5,6 +5,7 @@ import { getMySchedule, getMyExams, getMyResults, getTaughtClassStudents, saveRe
 import { useAuth } from "@/context/AuthContext"
 import { Save, CheckCircle, ChevronDown, BookOpen, AlertTriangle, Lock } from "lucide-react"
 import ExamResultsChart from "@/components/teacher/ExamResultsChart"
+import LoadingState from "../ui/LoadingState"
 import Select from "@/components/ui/Select"
 import { calcGrade } from "@/lib/services/grading"
 
@@ -167,11 +168,7 @@ export default function TeacherGradesPage() {
   const examOptions = exams.map(e => ({ label: `${e.name} (${e.status})`, value: e.id }))
   const classIds = Object.keys(classSlotsMap)
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-muted text-sm">Loading...</div>
-    </div>
-  )
+  if (loading) return <LoadingState label="Loading..." />
 
   return (
     <div className="flex flex-col gap-6">

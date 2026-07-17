@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import Input from "@/components/ui/Input"
-import { LogIn } from "lucide-react"
+import { LogIn, AlertTriangle } from "lucide-react"
 
 export default function SuperAdminLogin() {
   const router = useRouter()
@@ -83,9 +83,7 @@ export default function SuperAdminLogin() {
             disabled={loading}
           />
           {error && (
-            <div className="flex items-center gap-2 px-3 py-2.5 bg-surface border border-danger rounded-lg">
-              <p className="text-xs text-danger">{error}</p>
-            </div>
+            <p className="flex items-center gap-1.5 text-xs text-danger font-medium"><AlertTriangle size={15} />{error}</p>
           )}
           <button
             type="submit"
